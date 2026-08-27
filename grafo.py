@@ -1,0 +1,2 @@
+class Grafo:
+    pass
