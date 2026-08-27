@@ -1,4 +1,4 @@
-class GrafoRgiao:
+class GrafoRegiao:
     def __init__(self):
         self.num_pokemons = 0
         self.num_treinadores = 0
