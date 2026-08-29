@@ -85,7 +85,7 @@ def main():
         comando = input("Escolha uma opção: ").strip()
         
         if comando == '4':
-            print("Salvando e saindo do jogo...")
+            print("Saindo do jogo...")
             break
             
         elif comando == '1':

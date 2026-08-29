@@ -52,10 +52,41 @@ class Pokemon:
         self.tipo = random.choice(TIPOS_POKEMON)
         self.hp = 100
         self.xp = 0
-        self.ap = random.randint(10, 50)
-        self.dp = random.randint(10, 50)
+        # Valores de referência da fase atual; o AP/DP exibido é sempre recalculado a partir deles
+        self.ap_base = random.randint(10, 50)
+        self.dp_base = random.randint(10, 50)
+        # Pontos permanentes ganhos ao derrotar oponentes com XP maior ou igual ao seu
+        self.pontos_batalha_ap = 0
+        self.pontos_batalha_dp = 0
         self.fase_evolucao = 1
         self.ataques = [{"nome": nome, "bonus": bonus} for nome, bonus in ATAQUES_POR_TIPO[self.tipo]]
+        self.ap = 0
+        self.dp = 0
+        self._atualizar_atributos()
+
+    def _atualizar_atributos(self):
+        # AP/DP totais = valor inicial da fase atual + 10% do XP acumulado + pontos ganhos em batalha
+        bonus_xp = round(self.xp * 0.10)
+        self.ap = self.ap_base + bonus_xp + self.pontos_batalha_ap
+        self.dp = self.dp_base + bonus_xp + self.pontos_batalha_dp
+
+    def ganhar_xp(self, quantidade):
+        self.xp += quantidade
+        self._atualizar_atributos()
+
+    def registrar_resultado_batalha(self, xp_oponente_no_momento):
+        # Compara o XP do oponente derrotado com o XP deste pokémon ANTES do ganho de XP da própria vitória
+        if xp_oponente_no_momento >= self.xp:
+            self.pontos_batalha_ap += 1
+            self.pontos_batalha_dp += 1
+        self._atualizar_atributos()
+
+    def evoluir(self):
+        self.fase_evolucao += 1
+        self.xp = 0
+        self.ap_base = round(self.ap_base * 1.3)
+        self.dp_base = round(self.dp_base * 1.3)
+        self._atualizar_atributos()
 
     def definir_tipo(self, tipo):
         # Troca o tipo do pokémon e recalcula seus ataques de acordo com o novo tipo
@@ -149,14 +180,11 @@ class Treinador:
                 if p.hp >= 20: 
                     p.hp = min(100, p.hp + recuperacao_hp) 
                 
-                p.xp += ganho_xp
-
+                p.ganhar_xp(ganho_xp)
+                
                 if p.xp >= 1000 and p.fase_evolucao < 3:
-                    p.fase_evolucao += 1
-                    p.xp = 0
                     ap_antigo, dp_antigo = p.ap, p.dp
-                    p.ap = round(p.ap * 1.3)
-                    p.dp = round(p.dp * 1.3)
+                    p.evoluir()
                     print(f"🌟 INCRÍVEL! Seu Pokémon {p.tipo} evoluiu para a FASE {p.fase_evolucao}! (AP: {ap_antigo}→{p.ap}, DP: {dp_antigo}→{p.dp})")
 
             ovos_prontos = []
@@ -266,7 +294,7 @@ class Treinador:
 
         if p_aliado.hp < 20:
             print(f"💀 Seu {p_aliado.tipo} foi nocauteado!")
-            p_aliado.xp += 3
+            p_aliado.ganhar_xp(3)
             return False
 
         if p_selvagem.hp >= 20:
@@ -274,7 +302,8 @@ class Treinador:
             return False
 
         print("🏆 Vitória! O pokémon selvagem está inconsciente.")
-        p_aliado.xp += 10
+        p_aliado.registrar_resultado_batalha(p_selvagem.xp)
+        p_aliado.ganhar_xp(10)
         self.xp += 10
 
         if "Pokebola" in self.inventario:
@@ -285,8 +314,8 @@ class Treinador:
                 self.pokemons_ativos.append(p_selvagem)
 
                 self.xp += 3
-                p_aliado.xp += 3
-                p_selvagem.xp += 3
+                p_aliado.ganhar_xp(3)
+                p_selvagem.ganhar_xp(3)
                 print(f"✨ Sucesso! {p_selvagem.tipo} tá no time agora. (+3 XP de bônus de captura)")
 
                 if len(self.pokemons_ativos) > 6:
@@ -377,8 +406,10 @@ class Treinador:
 
             if defensor.hp < 20:
                 print(f"💀 {defensor.tipo} desmaiou!")
-                defensor.xp += 3
-                atacante.xp += 10
+                xp_defensor_no_momento = defensor.xp
+                defensor.ganhar_xp(3)
+                atacante.registrar_resultado_batalha(xp_defensor_no_momento)
+                atacante.ganhar_xp(10)
 
                 if defensor is ativo_desafiante:
                     time_desafiante.remove(ativo_desafiante)
