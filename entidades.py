@@ -34,6 +34,16 @@ class LiderGinasio:
             p.ap += 20
             p.dp += 20
 
+class TreinadorNPC:
+    def __init__(self, nome, local_atual):
+        self.nome = nome
+        self.local_atual = local_atual
+        self.xp = random.randint(0, 50)
+        self.derrotado_hoje = False
+        self.derrotado = False  # necessário para reaproveitar desafiar_lider() provisoriamente
+        # NPCs comuns têm equipes menores e mais fracas que líderes de ginásio
+        self.equipe = [Pokemon(), Pokemon()]
+
 class Treinador:
     def __init__(self, nome, local_atual):
         self.nome = nome

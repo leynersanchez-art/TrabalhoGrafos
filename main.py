@@ -1,11 +1,11 @@
 import random
 from grafo import GrafoRegiao
-from entidades import Pokemon, Item, Treinador, LiderGinasio, EquipeRocket
+from entidades import Pokemon, Item, Treinador, LiderGinasio, EquipeRocket, TreinadorNPC
 
 def espalhar_entidades_no_mapa(mapa):
     cidades = list(mapa.adjacencias.keys())
-    # Cria o "inventário de chão" de cada cidade garantindo que o mapa possa suportar itens e NPCs simultâneos
-    conteudo_cidades = {cidade: {'pokemons': [], 'itens': [], 'lider': None} for cidade in cidades}
+    # Cria o "inventário de chão" de c2ada cidade garantindo que o mapa possa suportar itens e NPCs simultâneos
+    conteudo_cidades = {cidade: {'pokemons': [], 'itens': [], 'lider': None, 'treinadores': []} for cidade in cidades}
     
     # A localização inicial das entidades é determinada pelo acaso usando as quantidades lidas do cabeçalho do arquivo texto
     for _ in range(mapa.num_pokemons):
@@ -17,21 +17,35 @@ def espalhar_entidades_no_mapa(mapa):
     # Sorteia vértices distintos para os Líderes, limitando ao total de cidades disponíveis no mapa para evitar crash
     nomes_lideres = ["Brock", "Misty", "Surge", "Erika", "Koga", "Sabrina", "Blaine", "Giovanni"]
     
-    # Descobre se o mapa tem 8 cidades ou menos, e pega o menor número
-    num_lideres_possiveis = min(8, len(cidades)) 
-    cidades_ginasio = random.sample(cidades, num_lideres_possiveis) 
+    # Cidades especiais (laboratório, centro médico) não fazem sentido temático como sede de ginásio
+    cidades_elegiveis = [c for c in cidades if "Lab_Carvalho" not in c and "Centro_Medico" not in c]
+
+    # Descobre se o mapa tem 8 cidades elegíveis ou menos, e pega o menor número
+    num_lideres_possiveis = min(8, len(cidades_elegiveis))
+    cidades_ginasio = random.sample(cidades_elegiveis, num_lideres_possiveis)
     
     for i in range(num_lideres_possiveis):
         cidade_escolhida = cidades_ginasio[i]
         conteudo_cidades[cidade_escolhida]['lider'] = LiderGinasio(nomes_lideres[i])
         
+    # Espalha treinadores NPC pelo mapa, usando a quantidade lida do cabeçalho do arquivo txt
+    nomes_npc = ["Joey", "Cheryl", "Mikey", "Vance", "Bianca", "Calvin", "Wade", "Aaron", "Piper", "Todd"]
+    treinadores_npc = []
+    for i in range(mapa.num_treinadores):
+        nome_npc = nomes_npc[i % len(nomes_npc)]
+        cidade_npc = random.choice(cidades)
+        npc = TreinadorNPC(nome_npc, cidade_npc)
+        treinadores_npc.append(npc)
+        conteudo_cidades[cidade_npc].setdefault('treinadores', []).append(npc)
+
     # O retorno é obrigatório para evitar o erro 'NoneType'
-    return conteudo_cidades
+    return conteudo_cidades, treinadores_npc
 
 def main():
     mapa = GrafoRegiao()
     mapa.carregar_mapa_arquivo("mapa.txt")
-    mundo = espalhar_entidades_no_mapa(mapa)
+    mundo, treinadores_npc = espalhar_entidades_no_mapa(mapa)
+    print("\nNPCs gerados:")
     
     jogador = Treinador(nome="Ash", local_atual="Pallet")
     jogador.receber_kit_inicial()
@@ -89,8 +103,16 @@ def main():
             print(f"\n🔍 Explorando {jogador.local_atual}...")
             
             lider = mundo[jogador.local_atual]['lider']
+            npcs_no_local = mundo[jogador.local_atual].get('treinadores', [])
+            npc_disponivel = next((n for n in npcs_no_local if not n.derrotado_hoje), None)
+
             if lider and not lider.derrotado:
-                jogador.desafiar_lider(lider)
+                            jogador.desafiar_lider(lider)
+            elif npc_disponivel:
+                # Batalha provisória 1v1 contra NPC, reaproveitando a mesma mecânica do líder.
+                print(f"\n👤 O treinador {npc_disponivel.nome} quer batalhar!")
+                jogador.desafiar_lider(npc_disponivel)
+                npc_disponivel.derrotado_hoje = True
             else:
                 itens_no_local = mundo[jogador.local_atual]['itens']
                 if itens_no_local:
