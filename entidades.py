@@ -78,7 +78,7 @@ class LiderGinasio:
     def __init__(self, nome):
         self.nome = nome
         self.derrotado = False
-        self.xp = random.randint(50, 120)
+        self.xp = random.randint(10, 30)
         self.equipe = [Pokemon(), Pokemon(), Pokemon()]
 
 
@@ -86,7 +86,7 @@ class TreinadorNPC:
     def __init__(self, nome, local_atual):
         self.nome = nome
         self.local_atual = local_atual
-        self.xp = random.randint(0, 50)
+        self.xp = random.randint(0, 20)
         self.derrotado_hoje = False
         self.equipe = [Pokemon(), Pokemon(), Pokemon()]
 
@@ -102,6 +102,9 @@ class Treinador:
         self.pokemons_carvalho = []
         self.insignias = 0
         self.inventario = []
+        # Guarda a distância que ainda não completou 100 (XP) ou 10 (HP) unidades, para não perder o resto entre viagens
+        self.distancia_pendente_xp = 0
+        self.distancia_pendente_hp = 0
 
     def receber_kit_inicial(self):
         p_agua, p_fogo, p_planta = Pokemon(), Pokemon(), Pokemon()
@@ -133,13 +136,19 @@ class Treinador:
             self.distancia_percorrida += tempo_gasto
             print(f"\n🚶 Você viajou para {destino} e percorreu {tempo_gasto} de distância.")
 
-            recuperacao_hp = tempo_gasto // 10
-            ganho_xp = tempo_gasto // 100
+            self.distancia_pendente_hp += tempo_gasto
+            self.distancia_pendente_xp += tempo_gasto
+
+            recuperacao_hp = self.distancia_pendente_hp // 10
+            self.distancia_pendente_hp %= 10
+
+            ganho_xp = self.distancia_pendente_xp // 100
+            self.distancia_pendente_xp %= 100
 
             for p in self.pokemons_ativos:
-                if p.hp >= 20:
-                    p.hp = min(100, p.hp + recuperacao_hp)
-
+                if p.hp >= 20: 
+                    p.hp = min(100, p.hp + recuperacao_hp) 
+                
                 p.xp += ganho_xp
 
                 if p.xp >= 1000 and p.fase_evolucao < 3:
@@ -315,31 +324,19 @@ class Treinador:
             return True
         return random.random() < 0.85
 
-    def desafiar_treinador(self, oponente):
+    def _duelo_3v3(self, oponente):
         """
-        Batalha 3v3 contra outro treinador (NPC, líder de ginásio, etc).
-        'oponente' precisa ter: nome, equipe (lista de Pokemon) e xp.
-        self é sempre quem inicia o desafio; o oponente decide se aceita ou recusa.
-        Retorna True se self venceu; False em qualquer outro caso (recusa, perda, empate).
+        Executa o duelo 3v3 propriamente dito, sem etapa de desafio/aceite.
+        Usado tanto por batalhas negociadas (desafiar_treinador) quanto por
+        encontros forçados (emboscada da Equipe Rocket).
+        Retorna True se self venceu.
         """
         meus_conscientes = [p for p in self.pokemons_ativos if p.hp >= 20]
-        if len(meus_conscientes) < 3:
-            print("❌ Você precisa de ao menos 3 pokémons conscientes para desafiar um treinador!")
-            return False
-
-        resposta = input(f"\n⚔️ Deseja desafiar {oponente.nome} para uma batalha? (s/n): ").strip().lower()
-        if resposta != 's':
-            print("Você optou por não desafiar desta vez.")
-            return False
-
-        print(f"{self.nome} desafiou {oponente.nome} para uma batalha!")
-
         seus_conscientes = [p for p in oponente.equipe if p.hp >= 20]
-        if len(seus_conscientes) < 3 or not self._oponente_aceita_desafio(oponente):
-            print(f"🚫 {oponente.nome} recusou o desafio.")
-            return False
 
-        print(f"✅ {oponente.nome} aceitou! A partir de agora você não pode mais desistir da batalha.")
+        if len(meus_conscientes) < 3 or len(seus_conscientes) < 3:
+            print("❌ Uma das partes não tem pokémons suficientes para o duelo.")
+            return False
 
         print("\nEscolha 3 pokémons para a batalha:")
         for i, p in enumerate(meus_conscientes):
@@ -410,7 +407,7 @@ class Treinador:
         self.distancia_percorrida += 1
 
         if not time_desafiante and not time_oponente:
-            print("\n⚖️ Ambos os treinadores ficaram sem pokémons ao mesmo tempo. Sem vencedor.")
+            print("\n⚖️ Ambos os lados ficaram sem pokémons ao mesmo tempo. Sem vencedor.")
             return False
         elif time_desafiante and not time_oponente:
             vitoria = True
@@ -428,6 +425,33 @@ class Treinador:
 
         return vitoria
 
+    def desafiar_treinador(self, oponente):
+        """
+        Negocia um desafio 3v3 contra outro treinador (NPC, líder de ginásio, etc):
+        exige 3 pokémons conscientes, pergunta se você quer desafiar e se o
+        oponente aceita, e só então inicia o duelo.
+        Retorna True se self venceu; False em qualquer outro caso (recusa, perda, empate).
+        """
+        meus_conscientes = [p for p in self.pokemons_ativos if p.hp >= 20]
+        if len(meus_conscientes) < 3:
+            print("❌ Você precisa de ao menos 3 pokémons conscientes para desafiar um treinador!")
+            return False
+
+        resposta = input(f"\n⚔️ Deseja desafiar {oponente.nome} para uma batalha? (s/n): ").strip().lower()
+        if resposta != 's':
+            print("Você optou por não desafiar desta vez.")
+            return False
+
+        print(f"{self.nome} desafiou {oponente.nome} para uma batalha!")
+
+        seus_conscientes = [p for p in oponente.equipe if p.hp >= 20]
+        if len(seus_conscientes) < 3 or not self._oponente_aceita_desafio(oponente):
+            print(f"🚫 {oponente.nome} recusou o desafio.")
+            return False
+
+        print(f"✅ {oponente.nome} aceitou! A partir de agora você não pode mais desistir da batalha.")
+        return self._duelo_3v3(oponente)
+
     def desafiar_lider(self, lider):
         if lider.derrotado:
             print(f"🏅 Você já derrotou {lider.nome}.")
@@ -441,9 +465,54 @@ class Treinador:
         return venceu
 
 
+    def enfrentar_rocket(self, rocket, mapa):
+        print(f"\n🛑 ALERTA! A EQUIPE ROCKET INTERCEPTOU VOCÊ EM {self.local_atual}!")
+
+        meus_conscientes = [p for p in self.pokemons_ativos if p.hp >= 20]
+        if len(meus_conscientes) < 3:
+            print("❌ Sua equipe não está em condições de lutar! A Equipe Rocket aproveita a fraqueza.")
+            self._rocket_rouba_pokemon()
+            self._rocket_tornar_invisivel(rocket)
+            return False
+
+        vitoria = self._duelo_3v3(rocket)
+
+        if vitoria:
+            self._rocket_fugir_para_local_distante(rocket, mapa)
+            rocket.equipe = [Pokemon(), Pokemon(), Pokemon()]
+        else:
+            self._rocket_rouba_pokemon()
+            self._rocket_tornar_invisivel(rocket)
+
+        return vitoria
+
+    def _rocket_rouba_pokemon(self):
+        if not self.pokemons_ativos:
+            print("😮 Você não tinha nenhum pokémon para ser roubado.")
+            return
+        pokemon_roubado = random.choice(self.pokemons_ativos)
+        self.pokemons_ativos.remove(pokemon_roubado)
+        print(f"💢 A Equipe Rocket fugiu com seu {pokemon_roubado.tipo}! O roubo é permanente.")
+
+    def _rocket_tornar_invisivel(self, rocket):
+        rocket.visivel = False
+        rocket.distancia_para_reaparecer = self.distancia_percorrida + 40
+        rocket.equipe = [Pokemon(), Pokemon(), Pokemon()]
+        print("💨 A Equipe Rocket desapareceu sem deixar rastro...")
+
+    def _rocket_fugir_para_local_distante(self, rocket, mapa):
+        cidades = list(mapa.adjacencias.keys())
+        vizinhos = [v for v, t in mapa.adjacencias[self.local_atual]]
+        cidades_distantes = [c for c in cidades if c != self.local_atual and c not in vizinhos]
+        rocket.local_atual = random.choice(cidades_distantes) if cidades_distantes else random.choice(cidades)
+        print(f"🏆 Você derrotou a Equipe Rocket! Eles fugiram para {rocket.local_atual}.")
+
+
 class EquipeRocket:
     def __init__(self, local_inicial):
         self.local_atual = local_inicial
         self.nome = "Equipe Rocket"
-        self.xp = random.randint(30, 80)
+        self.xp = random.randint(10, 25)
         self.equipe = [Pokemon(), Pokemon(), Pokemon()]
+        self.visivel = True
+        self.distancia_para_reaparecer = None

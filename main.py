@@ -55,16 +55,22 @@ def main():
     rocket = EquipeRocket(random.choice(cidades_mapa))
     
     while True:
-        # Movimentação autônoma da Equipe Rocket (um vértice por vez)
-        vizinhos_rocket = [cidade for cidade, tempo in mapa.adjacencias[rocket.local_atual]]
-        if vizinhos_rocket:
-            rocket.local_atual = random.choice(vizinhos_rocket)
-            
+        # A Equipe Rocket só se move e pode ser encontrada enquanto estiver visível
+        if rocket.visivel:
+            vizinhos_rocket = [cidade for cidade, tempo in mapa.adjacencias[rocket.local_atual]]
+            if vizinhos_rocket:
+                rocket.local_atual = random.choice(vizinhos_rocket)
+        elif jogador.distancia_percorrida >= rocket.distancia_para_reaparecer:
+            rocket.visivel = True
+            rocket.distancia_para_reaparecer = None
+            rocket.local_atual = random.choice(cidades_mapa)
+            print(f"\n👀 Rumores indicam que a Equipe Rocket reapareceu em {rocket.local_atual}!")
+
         jogador.exibir_status()
-        
-        # Checa se o jogador e a Equipe Rocket se esbarraram na mesma cidade
-        #if jogador.local_atual == rocket.local_atual:
-          #  jogador.enfrentar_rocket(rocket, mapa)
+
+        # Checa se o jogador e a Equipe Rocket se esbarraram na mesma cidade (só é possível se ela estiver visível)
+        if rocket.visivel and jogador.local_atual == rocket.local_atual:
+            jogador.enfrentar_rocket(rocket, mapa)
         
         print("📍 CIDADES VIZINHAS:")
         for cidade, tempo in mapa.adjacencias[jogador.local_atual]:
