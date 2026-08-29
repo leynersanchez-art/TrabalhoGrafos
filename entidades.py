@@ -93,9 +93,11 @@ class Treinador:
                 if p.xp >= 1000 and p.fase_evolucao < 3:
                     p.fase_evolucao += 1
                     p.xp = 0 
-                    p.ap += random.randint(10, 20) 
-                    p.dp += random.randint(10, 20) 
-                    print(f"🌟 INCRÍVEL! Seu Pokémon {p.tipo} evoluiu para a FASE {p.fase_evolucao}!")
+                    # Conforme o enunciado: AP e DP são acrescidos de 30% em relação à forma anterior (multiplicativo, não fixo)
+                    ap_antigo, dp_antigo = p.ap, p.dp
+                    p.ap = round(p.ap * 1.3)
+                    p.dp = round(p.dp * 1.3)
+                    print(f"🌟 INCRÍVEL! Seu Pokémon {p.tipo} evoluiu para a FASE {p.fase_evolucao}! (AP: {ap_antigo}→{p.ap}, DP: {dp_antigo}→{p.dp})")
 
             ovos_prontos = []
             for ovo in self.pokemons_incubadora:
