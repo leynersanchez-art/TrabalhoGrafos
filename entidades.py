@@ -137,8 +137,13 @@ class Treinador:
             # A coleta do ovo é bloqueada se o jogador não tiver encubadora ou se o limite global (ativos + ovos) atingir 7
             total = len(self.pokemons_ativos) + len(self.pokemons_incubadora)
             if total < 7 and "Encubadora" in self.inventario:
-                self.pokemons_incubadora.append({"distancia_restante": 100})
-                print("🥚 Ovo guardado na Encubadora! Faltam 100 de distância pra ele chocar.")
+                # O treinador pode optar por não pegar o ovo; uma vez aceito, não pode mais abandoná-lo
+                pegar = input("🥚 Você encontrou um Ovo! Deseja pegá-lo? (s/n): ").strip().lower()
+                if pegar == 's':
+                    self.pokemons_incubadora.append({"distancia_restante": 100})
+                    print("🥚 Ovo guardado na Encubadora! Faltam 100 de distância pra ele chocar.")
+                else:
+                    print("🥚 Você decidiu deixar o Ovo para trás.")
             else:
                 print("🥚 Achou um Ovo, mas sua equipe tá lotada ou falta a encubadora.")
 
@@ -181,40 +186,45 @@ class Treinador:
             if "Pokebola" in self.inventario:
                 capturar = input(f"Tentar capturar esse {p_selvagem.tipo}? (s/n): ").strip().lower()
                 if capturar == 's':
-                    self.inventario.remove("Pokebola")
-                    p_selvagem.hp = 100 # Pokémons recém-capturados têm a vida totalmente restaurada
-                    self.pokemons_ativos.append(p_selvagem)
-                    print(f"✨ Sucesso! {p_selvagem.tipo} tá no time agora.")
+                        self.inventario.remove("Pokebola")
+                        p_selvagem.hp = 100 # Pokémons recém-capturados têm a vida totalmente restaurada
+                        self.pokemons_ativos.append(p_selvagem)
 
-                    if len(self.pokemons_ativos) > 6:
-                        self._enviar_excedente_para_carvalho()
-                    return True
+                        # Bônus de captura: +3 XP extra para o treinador e para os pokémons envolvidos na batalha
+                        self.xp += 3
+                        p_aliado.xp += 3
+                        p_selvagem.xp += 3
+                        print(f"✨ Sucesso! {p_selvagem.tipo} tá no time agora. (+3 XP de bônus de captura)")
+
+                        if len(self.pokemons_ativos) > 6:
+                            self._enviar_excedente_para_carvalho()
+                        return True
         return False
 
 
         def _enviar_excedente_para_carvalho(self):
-        # Sempre que a equipe ultrapassa 6, o treinador escolhe quem fica; o resto vai pro laboratório
-        print("\n📦 Sua equipe ultrapassou 6 pokémons! Escolha quais 6 permanecem com você.")
-        for i, p in enumerate(self.pokemons_ativos):
-            print(f"  {i+1}. {p}")
+            # Sempre que a equipe ultrapassa 6, o treinador escolhe quem fica; o resto vai pro laboratório
+            print("\n📦 Sua equipe ultrapassou 6 pokémons! Escolha quais 6 permanecem com você.")
+            for i, p in enumerate(self.pokemons_ativos):
+                print(f"  {i+1}. {p}")
 
-        escolhidos = []
-        while len(escolhidos) < 6:
-            escolha = input(f"Escolha o pokémon {len(escolhidos)+1}/6 (número): ").strip()
-            if escolha.isdigit() and 1 <= int(escolha) <= len(self.pokemons_ativos):
-                idx = int(escolha) - 1
-                pokemon = self.pokemons_ativos[idx]
-                if pokemon not in escolhidos:
-                    escolhidos.append(pokemon)
+            escolhidos = []
+            while len(escolhidos) < 6:
+                escolha = input(f"Escolha o pokémon {len(escolhidos)+1}/6 (número): ").strip()
+                if escolha.isdigit() and 1 <= int(escolha) <= len(self.pokemons_ativos):
+                    idx = int(escolha) - 1
+                    pokemon = self.pokemons_ativos[idx]
+                    if pokemon not in escolhidos:
+                        escolhidos.append(pokemon)
+                    else:
+                        print("❌ Esse pokémon já foi escolhido.")
                 else:
-                    print("❌ Esse pokémon já foi escolhido.")
-            else:
-                print("❌ Escolha inválida.")
+                    print("❌ Escolha inválida.")
 
-        excedente = [p for p in self.pokemons_ativos if p not in escolhidos]
-        self.pokemons_ativos = escolhidos
-        self.pokemons_carvalho.extend(excedente)
-        print(f"📮 {len(excedente)} pokémon(s) foram enviados para estudo do Professor Carvalho.")
+            excedente = [p for p in self.pokemons_ativos if p not in escolhidos]
+            self.pokemons_ativos = escolhidos
+            self.pokemons_carvalho.extend(excedente)
+            print(f"📮 {len(excedente)} pokémon(s) foram enviados para estudo do Professor Carvalho.")
 
     def desafiar_lider(self, lider):
         print(f"\n⚠️ O LÍDER DE GINÁSIO {lider.nome.upper()} DESAFIA VOCÊ!")
