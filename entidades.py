@@ -62,6 +62,10 @@ class Pokemon:
         self.ataques = [{"nome": nome, "bonus": bonus} for nome, bonus in ATAQUES_POR_TIPO[self.tipo]]
         self.ap = 0
         self.dp = 0
+        # Distância restante até o pokémon poder voltar a lutar após desmaiar
+        self.cooldown_inconsciente = 0
+        # Fica True quando o HP cai abaixo de 5; só volta a False com tratamento no PMC
+        self.precisa_pmc = False
         self._atualizar_atributos()
 
     def _atualizar_atributos(self):
@@ -87,6 +91,20 @@ class Pokemon:
         self.ap_base = round(self.ap_base * 1.3)
         self.dp_base = round(self.dp_base * 1.3)
         self._atualizar_atributos()
+
+    def desmaiar(self):
+        self.cooldown_inconsciente = random.randint(10, 50)
+        if self.hp < 5:
+            self.precisa_pmc = True
+
+    def avancar_tempo(self, distancia):
+        if self.cooldown_inconsciente > 0:
+            self.cooldown_inconsciente = max(0, self.cooldown_inconsciente - distancia)
+            if self.cooldown_inconsciente == 0 and not self.precisa_pmc:
+                self.hp = max(self.hp, 20)
+
+    def esta_disponivel(self):
+        return self.hp >= 20 and self.cooldown_inconsciente <= 0 and not self.precisa_pmc
 
     def definir_tipo(self, tipo):
         # Troca o tipo do pokémon e recalcula seus ataques de acordo com o novo tipo
@@ -154,7 +172,12 @@ class Treinador:
         print(f"⭐ XP: {self.xp} | 🏅 Insígnias: {self.insignias}")
         print("🐾 Pokémons Ativos:")
         for i, p in enumerate(self.pokemons_ativos):
-            print(f"  {i+1}. {p}")
+            status = ""
+            if p.precisa_pmc:
+                status = " 🚑 [machucado grave — precisa do PMC]"
+            elif p.cooldown_inconsciente > 0:
+                status = f" 💤 [desmaiado, recupera em {p.cooldown_inconsciente} de distância]"
+            print(f"  {i+1}. {p}{status}")
         print(f"🎒 Inventário: {self.inventario}")
         print("===================================\n")
 
@@ -177,6 +200,8 @@ class Treinador:
             self.distancia_pendente_xp %= 100
 
             for p in self.pokemons_ativos:
+                p.avancar_tempo(tempo_gasto)
+
                 if p.hp >= 20: 
                     p.hp = min(100, p.hp + recuperacao_hp) 
                 
@@ -273,7 +298,7 @@ class Treinador:
     def batalhar(self, p_selvagem):
         print(f"\n⚔️ UM POKÉMON SELVAGEM APARECEU: {p_selvagem}!")
 
-        p_aliado = next((p for p in self.pokemons_ativos if p.hp >= 20), None)
+        p_aliado = next((p for p in self.pokemons_ativos if p.esta_disponivel()), None)
         if not p_aliado:
             print("❌ Sua equipe inteira caiu. Você foge da batalha!")
             return False
@@ -295,6 +320,7 @@ class Treinador:
         if p_aliado.hp < 20:
             print(f"💀 Seu {p_aliado.tipo} foi nocauteado!")
             p_aliado.ganhar_xp(3)
+            p_aliado.desmaiar()
             return False
 
         if p_selvagem.hp >= 20:
@@ -360,8 +386,8 @@ class Treinador:
         encontros forçados (emboscada da Equipe Rocket).
         Retorna True se self venceu.
         """
-        meus_conscientes = [p for p in self.pokemons_ativos if p.hp >= 20]
-        seus_conscientes = [p for p in oponente.equipe if p.hp >= 20]
+        meus_conscientes = [p for p in self.pokemons_ativos if p.esta_disponivel()]
+        seus_conscientes = [p for p in oponente.equipe if p.esta_disponivel()]
 
         if len(meus_conscientes) < 3 or len(seus_conscientes) < 3:
             print("❌ Uma das partes não tem pokémons suficientes para o duelo.")
@@ -408,6 +434,7 @@ class Treinador:
                 print(f"💀 {defensor.tipo} desmaiou!")
                 xp_defensor_no_momento = defensor.xp
                 defensor.ganhar_xp(3)
+                defensor.desmaiar()
                 atacante.registrar_resultado_batalha(xp_defensor_no_momento)
                 atacante.ganhar_xp(10)
 
@@ -463,7 +490,7 @@ class Treinador:
         oponente aceita, e só então inicia o duelo.
         Retorna True se self venceu; False em qualquer outro caso (recusa, perda, empate).
         """
-        meus_conscientes = [p for p in self.pokemons_ativos if p.hp >= 20]
+        meus_conscientes = [p for p in self.pokemons_ativos if p.esta_disponivel()]
         if len(meus_conscientes) < 3:
             print("❌ Você precisa de ao menos 3 pokémons conscientes para desafiar um treinador!")
             return False
@@ -475,7 +502,7 @@ class Treinador:
 
         print(f"{self.nome} desafiou {oponente.nome} para uma batalha!")
 
-        seus_conscientes = [p for p in oponente.equipe if p.hp >= 20]
+        seus_conscientes = [p for p in oponente.equipe if p.esta_disponivel()]
         if len(seus_conscientes) < 3 or not self._oponente_aceita_desafio(oponente):
             print(f"🚫 {oponente.nome} recusou o desafio.")
             return False
@@ -499,7 +526,7 @@ class Treinador:
     def enfrentar_rocket(self, rocket, mapa):
         print(f"\n🛑 ALERTA! A EQUIPE ROCKET INTERCEPTOU VOCÊ EM {self.local_atual}!")
 
-        meus_conscientes = [p for p in self.pokemons_ativos if p.hp >= 20]
+        meus_conscientes = [p for p in self.pokemons_ativos if p.esta_disponivel()]
         if len(meus_conscientes) < 3:
             print("❌ Sua equipe não está em condições de lutar! A Equipe Rocket aproveita a fraqueza.")
             self._rocket_rouba_pokemon()
@@ -537,6 +564,26 @@ class Treinador:
         cidades_distantes = [c for c in cidades if c != self.local_atual and c not in vizinhos]
         rocket.local_atual = random.choice(cidades_distantes) if cidades_distantes else random.choice(cidades)
         print(f"🏆 Você derrotou a Equipe Rocket! Eles fugiram para {rocket.local_atual}.")
+
+
+    def tratar_pokemons_pmc(self):
+        pokemons_para_tratar = [p for p in self.pokemons_ativos if p.precisa_pmc]
+        if not pokemons_para_tratar:
+            print("✅ Nenhum dos seus pokémons precisa de tratamento no momento.")
+            return
+
+        print(f"\n🏥 {len(pokemons_para_tratar)} pokémon(s) internados para tratamento (sem fila de espera, em paralelo).")
+        tempo_maximo = 0
+        for p in pokemons_para_tratar:
+            tempo_tratamento = random.randint(10, 50)
+            tempo_maximo = max(tempo_maximo, tempo_tratamento)
+            p.hp = 100
+            p.precisa_pmc = False
+            p.cooldown_inconsciente = 0
+            print(f"  💊 {p.tipo} tratado em {tempo_tratamento} unidades de tempo. HP restaurado para 100.")
+
+        self.distancia_percorrida += tempo_maximo
+        print(f"⏱️ Tratamento concluído após {tempo_maximo} unidades de tempo no PMC.")
 
 
 class EquipeRocket:

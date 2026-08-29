@@ -116,6 +116,8 @@ def main():
 
             # Monta a lista do que existe na cidade agora, sem deixar nada "escondido" atrás de outra entidade
             opcoes_locais = []
+            if "Centro_Medico" in jogador.local_atual:
+                opcoes_locais.append(('pmc', "Tratar pokémons machucados no PMC"))
             if lider and not lider.derrotado:
                 opcoes_locais.append(('lider', f"Desafiar o Líder de Ginásio {lider.nome}"))
             if npc_disponivel:
@@ -136,7 +138,9 @@ def main():
                 if escolha.isdigit() and 1 <= int(escolha) <= len(opcoes_locais):
                     tipo_escolhido, _ = opcoes_locais[int(escolha) - 1]
 
-                    if tipo_escolhido == 'lider':
+                    if tipo_escolhido == 'pmc':
+                        jogador.tratar_pokemons_pmc()
+                    elif tipo_escolhido == 'lider':
                         jogador.desafiar_lider(lider)
                     elif tipo_escolhido == 'npc':
                         venceu = jogador.desafiar_treinador(npc_disponivel)
