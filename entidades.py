@@ -43,6 +43,8 @@ class Treinador:
         # A equipe de combate ativa é rigorosamente limitada a um máximo de 6 pokémons simultâneos
         self.pokemons_ativos = [] 
         self.pokemons_incubadora = [] 
+        # Pokémons excedentes (capturados com a equipe já cheia) ficam sob estudo do Prof. Carvalho
+        self.pokemons_carvalho = []
         # O objetivo central é acumular 8 insígnias derrotando líderes para validar a inscrição na Liga
         self.insignias = 0 
         self.inventario = []
@@ -174,16 +176,45 @@ class Treinador:
             p_aliado.xp += 10 
             self.xp += 10
             
-            # A tentativa de captura é validada mediante posse de pokébola no inventário e espaço na equipe
-            if "Pokebola" in self.inventario and len(self.pokemons_ativos) < 6:
+            # A captura é validada apenas pela posse de pokébola — o enunciado permite capturar mesmo com a equipe cheia,
+            # bastando escolher depois quais 6 pokémons permanecem ativos
+            if "Pokebola" in self.inventario:
                 capturar = input(f"Tentar capturar esse {p_selvagem.tipo}? (s/n): ").strip().lower()
                 if capturar == 's':
                     self.inventario.remove("Pokebola")
                     p_selvagem.hp = 100 # Pokémons recém-capturados têm a vida totalmente restaurada
                     self.pokemons_ativos.append(p_selvagem)
                     print(f"✨ Sucesso! {p_selvagem.tipo} tá no time agora.")
+
+                    if len(self.pokemons_ativos) > 6:
+                        self._enviar_excedente_para_carvalho()
                     return True
         return False
+
+
+        def _enviar_excedente_para_carvalho(self):
+        # Sempre que a equipe ultrapassa 6, o treinador escolhe quem fica; o resto vai pro laboratório
+        print("\n📦 Sua equipe ultrapassou 6 pokémons! Escolha quais 6 permanecem com você.")
+        for i, p in enumerate(self.pokemons_ativos):
+            print(f"  {i+1}. {p}")
+
+        escolhidos = []
+        while len(escolhidos) < 6:
+            escolha = input(f"Escolha o pokémon {len(escolhidos)+1}/6 (número): ").strip()
+            if escolha.isdigit() and 1 <= int(escolha) <= len(self.pokemons_ativos):
+                idx = int(escolha) - 1
+                pokemon = self.pokemons_ativos[idx]
+                if pokemon not in escolhidos:
+                    escolhidos.append(pokemon)
+                else:
+                    print("❌ Esse pokémon já foi escolhido.")
+            else:
+                print("❌ Escolha inválida.")
+
+        excedente = [p for p in self.pokemons_ativos if p not in escolhidos]
+        self.pokemons_ativos = escolhidos
+        self.pokemons_carvalho.extend(excedente)
+        print(f"📮 {len(excedente)} pokémon(s) foram enviados para estudo do Professor Carvalho.")
 
     def desafiar_lider(self, lider):
         print(f"\n⚠️ O LÍDER DE GINÁSIO {lider.nome.upper()} DESAFIA VOCÊ!")
