@@ -216,9 +216,8 @@ class Treinador:
             # A derrota definitiva do líder concede a cobiçada insígnia, passo vital para zerar o jogo
             self.insignias += 1
             lider.derrotado = True
-            meu_lutador.xp += 30 
+            meu_lutador.xp += 10
             print(f"🏅 Você recebeu uma INSÍGNIA! Total: {self.insignias}/8")
-            return True
         else:
             print("⚔️ Batalha empatada. Ambos os pokémons continuam de pé!")
             return False
@@ -253,7 +252,7 @@ class Treinador:
             return False
         elif lutador_rocket.hp < 20:
             print("🏆 VOCÊ DERROTOU A EQUIPE ROCKET!")
-            meu_lutador.xp += 20
+            meu_lutador.xp += 10
             
             cidades = list(mapa.adjacencias.keys())
             vizinhos = [v for v, t in mapa.adjacencias[self.local_atual]]
