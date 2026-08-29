@@ -45,7 +45,7 @@ def main():
     mapa = GrafoRegiao()
     mapa.carregar_mapa_arquivo("mapa.txt")
     mundo, treinadores_npc = espalhar_entidades_no_mapa(mapa)
-    print("\nNPCs gerados:")
+
     
     jogador = Treinador(nome="Ash", local_atual="Pallet")
     jogador.receber_kit_inicial()
@@ -101,33 +101,51 @@ def main():
                     
         elif comando == '2':
             print(f"\n🔍 Explorando {jogador.local_atual}...")
-            
+
             lider = mundo[jogador.local_atual]['lider']
             npcs_no_local = mundo[jogador.local_atual].get('treinadores', [])
             npc_disponivel = next((n for n in npcs_no_local if not n.derrotado_hoje), None)
+            itens_no_local = mundo[jogador.local_atual]['itens']
+            pokemons_no_local = mundo[jogador.local_atual]['pokemons']
 
+            # Monta a lista do que existe na cidade agora, sem deixar nada "escondido" atrás de outra entidade
+            opcoes_locais = []
             if lider and not lider.derrotado:
-                            jogador.desafiar_lider(lider)
-            elif npc_disponivel:
-                print(f"\n👤 O treinador {npc_disponivel.nome} quer batalhar!")
-                venceu = jogador.desafiar_treinador(npc_disponivel, mostrar_desafio=False)
-                if venceu:
-                    npc_disponivel.derrotado_hoje = True
+                opcoes_locais.append(('lider', f"Desafiar o Líder de Ginásio {lider.nome}"))
+            if npc_disponivel:
+                opcoes_locais.append(('npc', f"Desafiar o treinador {npc_disponivel.nome}"))
+            if itens_no_local:
+                opcoes_locais.append(('itens', f"Pegar itens ({len(itens_no_local)} disponíveis)"))
+            if pokemons_no_local:
+                opcoes_locais.append(('pokemon', f"Batalhar contra pokémon selvagem ({pokemons_no_local[0].tipo})"))
+
+            if not opcoes_locais:
+                print("💨 A área está completamente vazia.")
             else:
-                itens_no_local = mundo[jogador.local_atual]['itens']
-                if itens_no_local:
-                    for item in itens_no_local:
-                        jogador.pegar_item(item)
-                    mundo[jogador.local_atual]['itens'] = []
-                
-                pokemons_no_local = mundo[jogador.local_atual]['pokemons']
-                if pokemons_no_local:
-                    p_selvagem = pokemons_no_local[0]
-                    jogador.batalhar(p_selvagem)
-                    mundo[jogador.local_atual]['pokemons'].pop(0)
-                
-                if not itens_no_local and not pokemons_no_local and not lider:
-                    print("💨 A área está completamente vazia.")
+                print("\nO que você encontrou aqui:")
+                for i, (_, descricao) in enumerate(opcoes_locais):
+                    print(f"  {i+1}. {descricao}")
+                escolha = input("O que deseja fazer? (número): ").strip()
+
+                if escolha.isdigit() and 1 <= int(escolha) <= len(opcoes_locais):
+                    tipo_escolhido, _ = opcoes_locais[int(escolha) - 1]
+
+                    if tipo_escolhido == 'lider':
+                        jogador.desafiar_lider(lider)
+                    elif tipo_escolhido == 'npc':
+                        venceu = jogador.desafiar_treinador(npc_disponivel)
+                        if venceu:
+                            npc_disponivel.derrotado_hoje = True
+                    elif tipo_escolhido == 'itens':
+                        for item in itens_no_local:
+                            jogador.pegar_item(item)
+                        mundo[jogador.local_atual]['itens'] = []
+                    elif tipo_escolhido == 'pokemon':
+                        p_selvagem = pokemons_no_local[0]
+                        jogador.batalhar(p_selvagem)
+                        mundo[jogador.local_atual]['pokemons'].pop(0)
+                else:
+                    print("❌ Escolha inválida.")
 
 if __name__ == "__main__":
     main()

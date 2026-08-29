@@ -2,35 +2,85 @@ import random
 
 TIPOS_POKEMON = ["Água", "Fogo", "Planta", "Elétrico", "Fantasma", "Venenoso", "Gelo"]
 
+# Cada tipo possui um conjunto fixo de ataques. O "bonus" é somado ao AP do pokémon
+# no momento do golpe, representando a força específica daquele ataque.
+ATAQUES_POR_TIPO = {
+    "Água": [("Jato d'Água", 5), ("Hidro Bomba", 15), ("Bolha", 0)],
+    "Fogo": [("Lança-Chamas", 10), ("Investida de Fogo", 15), ("Brasa", 0)],
+    "Planta": [("Chicote de Vinha", 5), ("Folha Navalha", 12), ("Absorver", 0)],
+    "Elétrico": [("Choque do Trovão", 10), ("Raio", 15), ("Investida", 0)],
+    "Fantasma": [("Sombra Sinistra", 10), ("Bola Sombria", 15), ("Lamber", 0)],
+    "Venenoso": [("Investida Venenosa", 8), ("Ataque de Lodo", 14), ("Picada Venenosa", 0)],
+    "Gelo": [("Vento Gelado", 8), ("Nevasca", 15), ("Soco Gelado", 0)],
+}
+
+# Tabela de vantagens entre tipos.
+# FORTE_CONTRA: dobro de dano contra os tipos listados.
+# FRACO_CONTRA: metade do dano contra os tipos listados.
+# Combinações fora das duas listas são neutras (multiplicador 1x).
+FORTE_CONTRA = {
+    "Água": ["Fogo"],
+    "Fogo": ["Planta", "Gelo"],
+    "Planta": ["Água"],
+    "Elétrico": ["Água"],
+    "Fantasma": ["Fantasma"],
+    "Venenoso": ["Planta"],
+    "Gelo": ["Planta"],
+}
+
+FRACO_CONTRA = {
+    "Água": ["Planta", "Elétrico"],
+    "Fogo": ["Água"],
+    "Planta": ["Fogo", "Venenoso", "Gelo"],
+    "Elétrico": ["Planta"],
+    "Fantasma": [],
+    "Venenoso": ["Venenoso", "Fantasma"],
+    "Gelo": ["Água", "Fogo"],
+}
+
+
+def obter_multiplicador_tipo(tipo_atacante, tipo_defensor):
+    if tipo_defensor in FORTE_CONTRA.get(tipo_atacante, []):
+        return 2.0
+    if tipo_defensor in FRACO_CONTRA.get(tipo_atacante, []):
+        return 0.5
+    return 1.0
+
+
 class Pokemon:
     def __init__(self):
         self.tipo = random.choice(TIPOS_POKEMON)
-        # O HP inicial deve ser sempre 100, configurando o teto máximo de saúde para as curas
-        self.hp = 100 
+        self.hp = 100
         self.xp = 0
-        # Pontos de Ataque (AP) e Defesa (DP) gerados aleatoriamente para garantir variação de força entre os Pokemons
-        self.ap = random.randint(10, 50) 
+        self.ap = random.randint(10, 50)
         self.dp = random.randint(10, 50)
-        # O limite imposto pelo projeto para a progressão do pokémon é de 3 fases evolutivas
-        self.fase_evolucao = 1 
+        self.fase_evolucao = 1
+        self.ataques = [{"nome": nome, "bonus": bonus} for nome, bonus in ATAQUES_POR_TIPO[self.tipo]]
+
+    def definir_tipo(self, tipo):
+        # Troca o tipo do pokémon e recalcula seus ataques de acordo com o novo tipo
+        self.tipo = tipo
+        self.ataques = [{"nome": nome, "bonus": bonus} for nome, bonus in ATAQUES_POR_TIPO[tipo]]
 
     def __str__(self):
         return f"Pkmn {self.tipo} (HP:{self.hp} XP:{self.xp} AP:{self.ap} DP:{self.dp})"
 
+
 class Item:
     def __init__(self):
         self.tipo = random.choice(["Ovo", "Erva Medicinal", "Pokebola"])
-        
+
     def __str__(self):
         return f"{self.tipo}"
+
 
 class LiderGinasio:
     def __init__(self, nome):
         self.nome = nome
         self.derrotado = False
-        # Para representar um desafio de alto nível que exige preparo, a equipe do líder recebe um bônus de 20 pontos nos atributos
         self.xp = random.randint(50, 120)
         self.equipe = [Pokemon(), Pokemon(), Pokemon()]
+
 
 class TreinadorNPC:
     def __init__(self, nome, local_atual):
@@ -38,9 +88,8 @@ class TreinadorNPC:
         self.local_atual = local_atual
         self.xp = random.randint(0, 50)
         self.derrotado_hoje = False
-        self.derrotado = False  # necessário para reaproveitar desafiar_lider() provisoriamente
-        # NPCs comuns têm equipes menores e mais fracas que líderes de ginásio
         self.equipe = [Pokemon(), Pokemon(), Pokemon()]
+
 
 class Treinador:
     def __init__(self, nome, local_atual):
@@ -48,25 +97,23 @@ class Treinador:
         self.local_atual = local_atual
         self.xp = 0
         self.distancia_percorrida = 0
-        # A equipe de combate ativa é rigorosamente limitada a um máximo de 6 pokémons simultâneos
-        self.pokemons_ativos = [] 
-        self.pokemons_incubadora = [] 
-        # Pokémons excedentes (capturados com a equipe já cheia) ficam sob estudo do Prof. Carvalho
+        self.pokemons_ativos = []
+        self.pokemons_incubadora = []
         self.pokemons_carvalho = []
-        # O objetivo central é acumular 8 insígnias derrotando líderes para validar a inscrição na Liga
-        self.insignias = 0 
+        self.insignias = 0
         self.inventario = []
 
     def receber_kit_inicial(self):
-        # O jogador já começa com os 3 tipos iniciais distintos para ter vantagem tática contra diferentes selvagens
         p_agua, p_fogo, p_planta = Pokemon(), Pokemon(), Pokemon()
-        p_agua.tipo, p_fogo.tipo, p_planta.tipo = "Água", "Fogo", "Planta"
+        p_agua.definir_tipo("Água")
+        p_fogo.definir_tipo("Fogo")
+        p_planta.definir_tipo("Planta")
         self.pokemons_ativos.extend([p_agua, p_fogo, p_planta])
-        
+
         self.inventario.append("Encubadora")
         for _ in range(7):
             self.inventario.append("Pokebola")
-            
+
     def exibir_status(self):
         print(f"\n=== STATUS DO TREINADOR {self.nome.upper()} ===")
         print(f"📍 Local Atual: {self.local_atual}")
@@ -78,32 +125,26 @@ class Treinador:
         print("===================================\n")
 
     def mover(self, mapa, destino):
-        # A movimentação é restrita a vértices adjacentes diretos para impedir saltos irreais no mapa
         vizinhos = {cidade: tempo for cidade, tempo in mapa.adjacencias[self.local_atual]}
-        
+
         if destino in vizinhos:
             tempo_gasto = vizinhos[destino]
             self.local_atual = destino
             self.distancia_percorrida += tempo_gasto
             print(f"\n🚶 Você viajou para {destino} e percorreu {tempo_gasto} de distância.")
-            
-            # A recuperação de HP ocorre à taxa de 1 unidade por 10 de distância viajada
+
             recuperacao_hp = tempo_gasto // 10
-            # O ganho passivo de experiência exige 100 de distância para render 1 único XP
-            ganho_xp = tempo_gasto // 100 
-            
+            ganho_xp = tempo_gasto // 100
+
             for p in self.pokemons_ativos:
-                # Pokémons com HP inferior a 20 são considerados desmaiados e o projeto proíbe a cura passiva deles
-                if p.hp >= 20: 
-                    p.hp = min(100, p.hp + recuperacao_hp) 
-                
+                if p.hp >= 20:
+                    p.hp = min(100, p.hp + recuperacao_hp)
+
                 p.xp += ganho_xp
-                
-                # Atingir 1000 XP aciona a evolução, melhorando os atributos, desde que não ultrapasse a 3ª e última fase
+
                 if p.xp >= 1000 and p.fase_evolucao < 3:
                     p.fase_evolucao += 1
-                    p.xp = 0 
-                    # Conforme o enunciado: AP e DP são acrescidos de 30% em relação à forma anterior (multiplicativo, não fixo)
+                    p.xp = 0
                     ap_antigo, dp_antigo = p.ap, p.dp
                     p.ap = round(p.ap * 1.3)
                     p.dp = round(p.dp * 1.3)
@@ -112,13 +153,11 @@ class Treinador:
             ovos_prontos = []
             for ovo in self.pokemons_incubadora:
                 ovo["distancia_restante"] -= tempo_gasto
-                # O ovo choca automaticamente após deduzir 100 unidades de distância de viagem do jogador
                 if ovo["distancia_restante"] <= 0:
                     ovos_prontos.append(ovo)
-            
+
             for ovo in ovos_prontos:
                 self.pokemons_incubadora.remove(ovo)
-                # O recém-nascido só integra a equipe se houver vaga no limite estrutural de 6 pokémons
                 if len(self.pokemons_ativos) < 6:
                     novo_pokemon = Pokemon()
                     self.pokemons_ativos.append(novo_pokemon)
@@ -132,20 +171,17 @@ class Treinador:
         if item.tipo == "Pokebola":
             self.inventario.append("Pokebola")
             print("🎒 Você encontrou e guardou uma Pokébola!")
-            
+
         elif item.tipo == "Erva Medicinal":
             print("🌿 Preparando poção com a Erva Medicinal...")
-            # A erva medicinal restaura 10 HPs exclusivamente de pokémons que ainda estão conscientes na party
             for p in self.pokemons_ativos:
                 if p.hp >= 20:
                     p.hp = min(100, p.hp + 10)
             print("✨ Todos os pokémons conscientes recuperaram 10 de HP!")
-            
+
         elif item.tipo == "Ovo":
-            # A coleta do ovo é bloqueada se o jogador não tiver encubadora ou se o limite global (ativos + ovos) atingir 7
             total = len(self.pokemons_ativos) + len(self.pokemons_incubadora)
             if total < 7 and "Encubadora" in self.inventario:
-                # O treinador pode optar por não pegar o ovo; uma vez aceito, não pode mais abandoná-lo
                 pegar = input("🥚 Você encontrou um Ovo! Deseja pegá-lo? (s/n): ").strip().lower()
                 if pegar == 's':
                     self.pokemons_incubadora.append({"distancia_restante": 100})
@@ -155,107 +191,155 @@ class Treinador:
             else:
                 print("🥚 Achou um Ovo, mas sua equipe tá lotada ou falta a encubadora.")
 
+    def _escolher_ataque(self, pokemon, controlado_pelo_jogador):
+        if not controlado_pelo_jogador:
+            return random.choice(pokemon.ataques)
+
+        print(f"\nAtaques disponíveis para {pokemon.tipo}:")
+        for i, ataque in enumerate(pokemon.ataques):
+            print(f"  {i+1}. {ataque['nome']}")
+        escolha = input("Escolha o ataque (número): ").strip()
+        if escolha.isdigit() and 1 <= int(escolha) <= len(pokemon.ataques):
+            return pokemon.ataques[int(escolha) - 1]
+        print("Ataque inválido, usando o primeiro disponível.")
+        return pokemon.ataques[0]
+
+    def _executar_ataque(self, atacante, bonus_ap_atacante, defensor, bonus_dp_defensor, controlado_pelo_jogador):
+        ataque = self._escolher_ataque(atacante, controlado_pelo_jogador)
+        diferenca_xp = abs(atacante.xp - defensor.xp)
+        chance_esquiva = min(0.9, diferenca_xp / 1000)
+        chance_critico = min(0.9, diferenca_xp / 1000)
+
+        if random.random() < chance_esquiva:
+            print(f"💨 {defensor.tipo} esquivou de {ataque['nome']}!")
+            return
+
+        ap_efetivo = atacante.ap + bonus_ap_atacante + ataque["bonus"]
+        dp_efetivo = defensor.dp + bonus_dp_defensor
+        multiplicador = obter_multiplicador_tipo(atacante.tipo, defensor.tipo)
+
+        dano = max(0, ap_efetivo - dp_efetivo)
+        dano = round(dano * multiplicador)
+
+        if dano > 0 and random.random() < chance_critico:
+            dano *= 2
+            print("🎯 ATAQUE CRÍTICO!")
+
+        if multiplicador > 1:
+            print("💢 Foi super efetivo!")
+        elif multiplicador < 1:
+            print("🛡️ Não foi muito efetivo...")
+
+        defensor.hp -= dano
+        print(f"💥 {atacante.tipo} usou {ataque['nome']} e causou {dano} de dano! (HP restante: {max(0, defensor.hp)})")
+
     def batalhar(self, p_selvagem):
-        print(f"\n⚔️ UM POKÉMON SELVAGEM APARECEU: {p_selvagem.tipo} (HP:{p_selvagem.hp} AP:{p_selvagem.ap} DP:{p_selvagem.dp})!")
-        
-        # A batalha exige ao menos um pokémon na equipe com HP 20 ou superior para iniciar a trocação
+        print(f"\n⚔️ UM POKÉMON SELVAGEM APARECEU: {p_selvagem}!")
+
         p_aliado = next((p for p in self.pokemons_ativos if p.hp >= 20), None)
-        
         if not p_aliado:
             print("❌ Sua equipe inteira caiu. Você foge da batalha!")
             return False
-            
-        print(f"👉 Vai, {p_aliado.tipo}! (AP:{p_aliado.ap} DP:{p_aliado.dp})")
-        
-        # A métrica de dano do projeto é crua: subtrai a Defesa do alvo do Ataque de quem desfere o golpe
-        dano_no_selvagem = max(0, p_aliado.ap - p_selvagem.dp)
-        dano_no_aliado = max(0, p_selvagem.ap - p_aliado.dp)
-        
-        p_selvagem.hp -= dano_no_selvagem
-        print(f"💥 {p_aliado.tipo} atacou causando {dano_no_selvagem} de dano!")
-        
-        if p_selvagem.hp > 0:
-            p_aliado.hp -= dano_no_aliado
-            print(f"💥 O selvagem revidou causando {dano_no_aliado} de dano!")
-            
+
+        print(f"👉 Vai, {p_aliado.tipo}!")
+
+        turno_do_selvagem = True
+        turnos = 0
+        MAX_TURNOS = 200
+
+        while p_aliado.hp >= 20 and p_selvagem.hp >= 20 and turnos < MAX_TURNOS:
+            turnos += 1
+            if turno_do_selvagem:
+                self._executar_ataque(p_selvagem, 0, p_aliado, 0, controlado_pelo_jogador=False)
+            else:
+                self._executar_ataque(p_aliado, 0, p_selvagem, 0, controlado_pelo_jogador=True)
+            turno_do_selvagem = not turno_do_selvagem
+
         if p_aliado.hp < 20:
             print(f"💀 Seu {p_aliado.tipo} foi nocauteado!")
-            # A derrota rende um bônus mínimo de consolação de 3 XP conforme as regras
-            p_aliado.xp += 3 
+            p_aliado.xp += 3
             return False
-        else:
-            print(f"🏆 Vitória!")
-            # A vitória em combate garante um ganho de 10 XP para o pokémon lutador e para o treinador
-            p_aliado.xp += 10 
-            self.xp += 10
-            
-            # A captura é validada apenas pela posse de pokébola — o enunciado permite capturar mesmo com a equipe cheia,
-            # bastando escolher depois quais 6 pokémons permanecem ativos
-            if "Pokebola" in self.inventario:
-                capturar = input(f"Tentar capturar esse {p_selvagem.tipo}? (s/n): ").strip().lower()
-                if capturar == 's':
-                        self.inventario.remove("Pokebola")
-                        p_selvagem.hp = 100 # Pokémons recém-capturados têm a vida totalmente restaurada
-                        self.pokemons_ativos.append(p_selvagem)
 
-                        # Bônus de captura: +3 XP extra para o treinador e para os pokémons envolvidos na batalha
-                        self.xp += 3
-                        p_aliado.xp += 3
-                        p_selvagem.xp += 3
-                        print(f"✨ Sucesso! {p_selvagem.tipo} tá no time agora. (+3 XP de bônus de captura)")
+        if p_selvagem.hp >= 20:
+            print("⏱️ A batalha se arrastou demais e o selvagem fugiu.")
+            return False
 
-                        if len(self.pokemons_ativos) > 6:
-                            self._enviar_excedente_para_carvalho()
-                        return True
+        print("🏆 Vitória! O pokémon selvagem está inconsciente.")
+        p_aliado.xp += 10
+        self.xp += 10
+
+        if "Pokebola" in self.inventario:
+            capturar = input(f"Tentar capturar esse {p_selvagem.tipo}? (s/n): ").strip().lower()
+            if capturar == 's':
+                self.inventario.remove("Pokebola")
+                p_selvagem.hp = 100
+                self.pokemons_ativos.append(p_selvagem)
+
+                self.xp += 3
+                p_aliado.xp += 3
+                p_selvagem.xp += 3
+                print(f"✨ Sucesso! {p_selvagem.tipo} tá no time agora. (+3 XP de bônus de captura)")
+
+                if len(self.pokemons_ativos) > 6:
+                    self._enviar_excedente_para_carvalho()
+                return True
+            else:
+                print(f"💨 Você decidiu não capturar. O {p_selvagem.tipo} foge escondido.")
         return False
 
+    def _enviar_excedente_para_carvalho(self):
+        print("\n📦 Sua equipe ultrapassou 6 pokémons! Escolha quais 6 permanecem com você.")
+        for i, p in enumerate(self.pokemons_ativos):
+            print(f"  {i+1}. {p}")
 
-        def _enviar_excedente_para_carvalho(self):
-            # Sempre que a equipe ultrapassa 6, o treinador escolhe quem fica; o resto vai pro laboratório
-            print("\n📦 Sua equipe ultrapassou 6 pokémons! Escolha quais 6 permanecem com você.")
-            for i, p in enumerate(self.pokemons_ativos):
-                print(f"  {i+1}. {p}")
-
-            escolhidos = []
-            while len(escolhidos) < 6:
-                escolha = input(f"Escolha o pokémon {len(escolhidos)+1}/6 (número): ").strip()
-                if escolha.isdigit() and 1 <= int(escolha) <= len(self.pokemons_ativos):
-                    idx = int(escolha) - 1
-                    pokemon = self.pokemons_ativos[idx]
-                    if pokemon not in escolhidos:
-                        escolhidos.append(pokemon)
-                    else:
-                        print("❌ Esse pokémon já foi escolhido.")
+        escolhidos = []
+        while len(escolhidos) < 6:
+            escolha = input(f"Escolha o pokémon {len(escolhidos)+1}/6 (número): ").strip()
+            if escolha.isdigit() and 1 <= int(escolha) <= len(self.pokemons_ativos):
+                idx = int(escolha) - 1
+                pokemon = self.pokemons_ativos[idx]
+                if pokemon not in escolhidos:
+                    escolhidos.append(pokemon)
                 else:
-                    print("❌ Escolha inválida.")
+                    print("❌ Esse pokémon já foi escolhido.")
+            else:
+                print("❌ Escolha inválida.")
 
-            excedente = [p for p in self.pokemons_ativos if p not in escolhidos]
-            self.pokemons_ativos = escolhidos
-            self.pokemons_carvalho.extend(excedente)
-            print(f"📮 {len(excedente)} pokémon(s) foram enviados para estudo do Professor Carvalho.")
+        excedente = [p for p in self.pokemons_ativos if p not in escolhidos]
+        self.pokemons_ativos = escolhidos
+        self.pokemons_carvalho.extend(excedente)
+        print(f"📮 {len(excedente)} pokémon(s) foram enviados para estudo do Professor Carvalho.")
 
-    def desafiar_treinador(self, oponente, chance_aceitar=1.0, mostrar_desafio=True):
+    def _oponente_aceita_desafio(self, oponente):
+        if isinstance(oponente, LiderGinasio):
+            return True
+        return random.random() < 0.85
+
+    def desafiar_treinador(self, oponente):
         """
         Batalha 3v3 contra outro treinador (NPC, líder de ginásio, etc).
-        'oponente' precisa ter: nome, equipe (lista de Pokemon) e, opcionalmente, xp.
-        Retorna True se quem chamou o método (self) venceu; False em qualquer outro caso (perda, recusa, empate).
+        'oponente' precisa ter: nome, equipe (lista de Pokemon) e xp.
+        self é sempre quem inicia o desafio; o oponente decide se aceita ou recusa.
+        Retorna True se self venceu; False em qualquer outro caso (recusa, perda, empate).
         """
-        if mostrar_desafio:
-            print(f"\n⚔️ {self.nome} DESAFIA {oponente.nome} PARA UMA BATALHA!")
-
-        if random.random() > chance_aceitar:
-            print(f"🚫 {oponente.nome} recusou o desafio.")
-            return False
-
         meus_conscientes = [p for p in self.pokemons_ativos if p.hp >= 20]
-        seus_conscientes = [p for p in oponente.equipe if p.hp >= 20]
-
         if len(meus_conscientes) < 3:
             print("❌ Você precisa de ao menos 3 pokémons conscientes para desafiar um treinador!")
             return False
-        if not seus_conscientes:
-            print(f"❌ {oponente.nome} não tem pokémons em condição de lutar.")
+
+        resposta = input(f"\n⚔️ Deseja desafiar {oponente.nome} para uma batalha? (s/n): ").strip().lower()
+        if resposta != 's':
+            print("Você optou por não desafiar desta vez.")
             return False
+
+        print(f"{self.nome} desafiou {oponente.nome} para uma batalha!")
+
+        seus_conscientes = [p for p in oponente.equipe if p.hp >= 20]
+        if len(seus_conscientes) < 3 or not self._oponente_aceita_desafio(oponente):
+            print(f"🚫 {oponente.nome} recusou o desafio.")
+            return False
+
+        print(f"✅ {oponente.nome} aceitou! A partir de agora você não pode mais desistir da batalha.")
 
         print("\nEscolha 3 pokémons para a batalha:")
         for i, p in enumerate(meus_conscientes):
@@ -272,15 +356,14 @@ class Treinador:
                 print("❌ Escolha inválida, tente novamente.")
 
         time_oponente = seus_conscientes[:3]
-
         ativo_desafiante = time_desafiante[0]
         ativo_oponente = time_oponente[0]
-        xp_oponente_treinador = getattr(oponente, 'xp', 0)
+        xp_oponente_treinador = oponente.xp
+        xp_desafiante_antes_da_luta = self.xp
 
-        # O treinador desafiado começa atacando
         turno_do_desafiante = False
         turnos = 0
-        MAX_TURNOS = 200  # rede de segurança contra loop infinito caso nenhum lado consiga causar dano
+        MAX_TURNOS = 200
 
         while time_desafiante and time_oponente and turnos < MAX_TURNOS:
             turnos += 1
@@ -292,63 +375,54 @@ class Treinador:
                 atacante, bonus_atacante = ativo_oponente, xp_oponente_treinador
                 defensor, bonus_defensor = ativo_desafiante, self.xp
 
-            # Cada pokémon recebe AP/DP a mais equivalente ao XP do seu treinador durante a disputa
-            ap_efetivo = atacante.ap + bonus_atacante
-            dp_efetivo = defensor.dp + bonus_defensor
-
-            diferenca_xp = abs(atacante.xp - defensor.xp)
-            # Probabilidades proporcionais à diferença de XP; teto de 90% para nunca serem garantia absoluta
-            chance_esquiva = min(0.9, diferenca_xp / 1000)
-            chance_critico = min(0.9, diferenca_xp / 1000)
-
-            if random.random() < chance_esquiva:
-                print(f"💨 {defensor.tipo} esquivou do ataque de {atacante.tipo}!")
-            else:
-                dano = max(0, ap_efetivo - dp_efetivo)
-                if dano > 0 and random.random() < chance_critico:
-                    dano *= 2
-                    print("🎯 ATAQUE CRÍTICO!")
-                defensor.hp -= dano
-                print(f"💥 {atacante.tipo} atacou {defensor.tipo} causando {dano} de dano! (HP restante: {max(0, defensor.hp)})")
+            self._executar_ataque(atacante, bonus_atacante, defensor, bonus_defensor,
+                                   controlado_pelo_jogador=(atacante is ativo_desafiante))
 
             if defensor.hp < 20:
                 print(f"💀 {defensor.tipo} desmaiou!")
+                defensor.xp += 3
+                atacante.xp += 10
+
                 if defensor is ativo_desafiante:
                     time_desafiante.remove(ativo_desafiante)
-                    if time_desafiante:
-                        if len(time_desafiante) > 1:
-                            print("Escolha o próximo pokémon:")
-                            for i, p in enumerate(time_desafiante):
-                                print(f"  {i+1}. {p}")
-                            prox = input("Número do pokémon: ").strip()
-                            if prox.isdigit() and 1 <= int(prox) <= len(time_desafiante):
-                                ativo_desafiante = time_desafiante[int(prox) - 1]
-                            else:
-                                ativo_desafiante = time_desafiante[0]
+                    if len(time_desafiante) > 1:
+                        print("Escolha o próximo pokémon:")
+                        for i, p in enumerate(time_desafiante):
+                            print(f"  {i+1}. {p}")
+                        prox = input("Número do pokémon: ").strip()
+                        if prox.isdigit() and 1 <= int(prox) <= len(time_desafiante):
+                            ativo_desafiante = time_desafiante[int(prox) - 1]
                         else:
                             ativo_desafiante = time_desafiante[0]
+                    elif time_desafiante:
+                        ativo_desafiante = time_desafiante[0]
                 else:
                     time_oponente.remove(ativo_oponente)
                     if time_oponente:
-                        ativo_oponente = time_oponente[0]
+                        if random.random() < 0.2:
+                            print(f"🏳️ {oponente.nome} desistiu da batalha!")
+                            time_oponente = []
+                        else:
+                            ativo_oponente = time_oponente[0]
 
             turno_do_desafiante = not turno_do_desafiante
 
-        # Cada batalha consome o equivalente a 1 unidade de tempo/distância percorrida
         self.distancia_percorrida += 1
 
-        if time_desafiante and not time_oponente:
+        if not time_desafiante and not time_oponente:
+            print("\n⚖️ Ambos os treinadores ficaram sem pokémons ao mesmo tempo. Sem vencedor.")
+            return False
+        elif time_desafiante and not time_oponente:
             vitoria = True
         elif time_oponente and not time_desafiante:
             vitoria = False
         else:
-            # Limite de turnos atingido sem um vencedor claro (raro, mas possível)
-            print("\n⏱️ A batalha se arrastou demais e terminou em impasse. Ambos os lados recuam.")
+            print("\n⏱️ A batalha se arrastou demais e terminou em impasse.")
             return False
 
         if vitoria:
             print(f"\n🏆 {self.nome} VENCEU A BATALHA CONTRA {oponente.nome}!")
-            self.xp += 3 if self.xp >= xp_oponente_treinador else 1
+            self.xp += 3 if xp_oponente_treinador >= xp_desafiante_antes_da_luta else 1
         else:
             print(f"\n💀 {self.nome} PERDEU A BATALHA CONTRA {oponente.nome}!")
 
@@ -359,18 +433,17 @@ class Treinador:
             print(f"🏅 Você já derrotou {lider.nome}.")
             return False
 
-        venceu = self.desafiar_treinador(lider, chance_aceitar=1.0)
+        venceu = self.desafiar_treinador(lider)
         if venceu:
             lider.derrotado = True
             self.insignias += 1
             print(f"🏅 Você recebeu a insígnia de {lider.nome}! Total: {self.insignias}/8")
         return venceu
-        
+
+
 class EquipeRocket:
     def __init__(self, local_inicial):
         self.local_atual = local_inicial
-        # A Equipe Rocket carrega Pokémons mais fortes para dificultar a exploração
-        self.equipe = [Pokemon(), Pokemon()]
-        for p in self.equipe:
-            p.ap += 15
-            p.dp += 15
+        self.nome = "Equipe Rocket"
+        self.xp = random.randint(30, 80)
+        self.equipe = [Pokemon(), Pokemon(), Pokemon()]
