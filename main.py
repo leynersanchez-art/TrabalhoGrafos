@@ -63,8 +63,8 @@ def main():
         jogador.exibir_status()
         
         # Checa se o jogador e a Equipe Rocket se esbarraram na mesma cidade
-        if jogador.local_atual == rocket.local_atual:
-            jogador.enfrentar_rocket(rocket, mapa)
+        #if jogador.local_atual == rocket.local_atual:
+          #  jogador.enfrentar_rocket(rocket, mapa)
         
         print("📍 CIDADES VIZINHAS:")
         for cidade, tempo in mapa.adjacencias[jogador.local_atual]:
@@ -109,10 +109,10 @@ def main():
             if lider and not lider.derrotado:
                             jogador.desafiar_lider(lider)
             elif npc_disponivel:
-                # Batalha provisória 1v1 contra NPC, reaproveitando a mesma mecânica do líder.
                 print(f"\n👤 O treinador {npc_disponivel.nome} quer batalhar!")
-                jogador.desafiar_lider(npc_disponivel)
-                npc_disponivel.derrotado_hoje = True
+                venceu = jogador.desafiar_treinador(npc_disponivel, mostrar_desafio=False)
+                if venceu:
+                    npc_disponivel.derrotado_hoje = True
             else:
                 itens_no_local = mundo[jogador.local_atual]['itens']
                 if itens_no_local:

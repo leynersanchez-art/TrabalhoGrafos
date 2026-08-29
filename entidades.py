@@ -29,10 +29,8 @@ class LiderGinasio:
         self.nome = nome
         self.derrotado = False
         # Para representar um desafio de alto nível que exige preparo, a equipe do líder recebe um bônus de 20 pontos nos atributos
+        self.xp = random.randint(50, 120)
         self.equipe = [Pokemon(), Pokemon(), Pokemon()]
-        for p in self.equipe:
-            p.ap += 20
-            p.dp += 20
 
 class TreinadorNPC:
     def __init__(self, nome, local_atual):
@@ -42,7 +40,7 @@ class TreinadorNPC:
         self.derrotado_hoje = False
         self.derrotado = False  # necessário para reaproveitar desafiar_lider() provisoriamente
         # NPCs comuns têm equipes menores e mais fracas que líderes de ginásio
-        self.equipe = [Pokemon(), Pokemon()]
+        self.equipe = [Pokemon(), Pokemon(), Pokemon()]
 
 class Treinador:
     def __init__(self, nome, local_atual):
@@ -236,93 +234,137 @@ class Treinador:
             self.pokemons_carvalho.extend(excedente)
             print(f"📮 {len(excedente)} pokémon(s) foram enviados para estudo do Professor Carvalho.")
 
+    def desafiar_treinador(self, oponente, chance_aceitar=1.0, mostrar_desafio=True):
+        """
+        Batalha 3v3 contra outro treinador (NPC, líder de ginásio, etc).
+        'oponente' precisa ter: nome, equipe (lista de Pokemon) e, opcionalmente, xp.
+        Retorna True se quem chamou o método (self) venceu; False em qualquer outro caso (perda, recusa, empate).
+        """
+        if mostrar_desafio:
+            print(f"\n⚔️ {self.nome} DESAFIA {oponente.nome} PARA UMA BATALHA!")
+
+        if random.random() > chance_aceitar:
+            print(f"🚫 {oponente.nome} recusou o desafio.")
+            return False
+
+        meus_conscientes = [p for p in self.pokemons_ativos if p.hp >= 20]
+        seus_conscientes = [p for p in oponente.equipe if p.hp >= 20]
+
+        if len(meus_conscientes) < 3:
+            print("❌ Você precisa de ao menos 3 pokémons conscientes para desafiar um treinador!")
+            return False
+        if not seus_conscientes:
+            print(f"❌ {oponente.nome} não tem pokémons em condição de lutar.")
+            return False
+
+        print("\nEscolha 3 pokémons para a batalha:")
+        for i, p in enumerate(meus_conscientes):
+            print(f"  {i+1}. {p}")
+
+        time_desafiante = []
+        indices_usados = set()
+        while len(time_desafiante) < 3:
+            escolha = input(f"Pokémon {len(time_desafiante)+1}/3 (número): ").strip()
+            if escolha.isdigit() and int(escolha) not in indices_usados and 1 <= int(escolha) <= len(meus_conscientes):
+                indices_usados.add(int(escolha))
+                time_desafiante.append(meus_conscientes[int(escolha) - 1])
+            else:
+                print("❌ Escolha inválida, tente novamente.")
+
+        time_oponente = seus_conscientes[:3]
+
+        ativo_desafiante = time_desafiante[0]
+        ativo_oponente = time_oponente[0]
+        xp_oponente_treinador = getattr(oponente, 'xp', 0)
+
+        # O treinador desafiado começa atacando
+        turno_do_desafiante = False
+        turnos = 0
+        MAX_TURNOS = 200  # rede de segurança contra loop infinito caso nenhum lado consiga causar dano
+
+        while time_desafiante and time_oponente and turnos < MAX_TURNOS:
+            turnos += 1
+
+            if turno_do_desafiante:
+                atacante, bonus_atacante = ativo_desafiante, self.xp
+                defensor, bonus_defensor = ativo_oponente, xp_oponente_treinador
+            else:
+                atacante, bonus_atacante = ativo_oponente, xp_oponente_treinador
+                defensor, bonus_defensor = ativo_desafiante, self.xp
+
+            # Cada pokémon recebe AP/DP a mais equivalente ao XP do seu treinador durante a disputa
+            ap_efetivo = atacante.ap + bonus_atacante
+            dp_efetivo = defensor.dp + bonus_defensor
+
+            diferenca_xp = abs(atacante.xp - defensor.xp)
+            # Probabilidades proporcionais à diferença de XP; teto de 90% para nunca serem garantia absoluta
+            chance_esquiva = min(0.9, diferenca_xp / 1000)
+            chance_critico = min(0.9, diferenca_xp / 1000)
+
+            if random.random() < chance_esquiva:
+                print(f"💨 {defensor.tipo} esquivou do ataque de {atacante.tipo}!")
+            else:
+                dano = max(0, ap_efetivo - dp_efetivo)
+                if dano > 0 and random.random() < chance_critico:
+                    dano *= 2
+                    print("🎯 ATAQUE CRÍTICO!")
+                defensor.hp -= dano
+                print(f"💥 {atacante.tipo} atacou {defensor.tipo} causando {dano} de dano! (HP restante: {max(0, defensor.hp)})")
+
+            if defensor.hp < 20:
+                print(f"💀 {defensor.tipo} desmaiou!")
+                if defensor is ativo_desafiante:
+                    time_desafiante.remove(ativo_desafiante)
+                    if time_desafiante:
+                        if len(time_desafiante) > 1:
+                            print("Escolha o próximo pokémon:")
+                            for i, p in enumerate(time_desafiante):
+                                print(f"  {i+1}. {p}")
+                            prox = input("Número do pokémon: ").strip()
+                            if prox.isdigit() and 1 <= int(prox) <= len(time_desafiante):
+                                ativo_desafiante = time_desafiante[int(prox) - 1]
+                            else:
+                                ativo_desafiante = time_desafiante[0]
+                        else:
+                            ativo_desafiante = time_desafiante[0]
+                else:
+                    time_oponente.remove(ativo_oponente)
+                    if time_oponente:
+                        ativo_oponente = time_oponente[0]
+
+            turno_do_desafiante = not turno_do_desafiante
+
+        # Cada batalha consome o equivalente a 1 unidade de tempo/distância percorrida
+        self.distancia_percorrida += 1
+
+        if time_desafiante and not time_oponente:
+            vitoria = True
+        elif time_oponente and not time_desafiante:
+            vitoria = False
+        else:
+            # Limite de turnos atingido sem um vencedor claro (raro, mas possível)
+            print("\n⏱️ A batalha se arrastou demais e terminou em impasse. Ambos os lados recuam.")
+            return False
+
+        if vitoria:
+            print(f"\n🏆 {self.nome} VENCEU A BATALHA CONTRA {oponente.nome}!")
+            self.xp += 3 if self.xp >= xp_oponente_treinador else 1
+        else:
+            print(f"\n💀 {self.nome} PERDEU A BATALHA CONTRA {oponente.nome}!")
+
+        return vitoria
+
     def desafiar_lider(self, lider):
-        print(f"\n⚠️ O LÍDER DE GINÁSIO {lider.nome.upper()} DESAFIA VOCÊ!")
-        
-        meus_vivos = [p for p in self.pokemons_ativos if p.hp >= 20]
-        lider_vivos = [p for p in lider.equipe if p.hp >= 20]
-        
-        if not meus_vivos:
-            print("❌ Sua equipe está sem condições de lutar. Cure-os no Centro Médico primeiro!")
+        if lider.derrotado:
+            print(f"🏅 Você já derrotou {lider.nome}.")
             return False
-            
-        meu_lutador = meus_vivos[0]
-        lutador_lider = lider_vivos[0]
-        
-        print(f"👉 Você enviou {meu_lutador.tipo} | O Líder enviou {lutador_lider.tipo}!")
-        
-        dano_no_lider = max(0, meu_lutador.ap - lutador_lider.dp)
-        dano_em_mim = max(0, lutador_lider.ap - meu_lutador.dp)
-        
-        lutador_lider.hp -= dano_no_lider
-        meu_lutador.hp -= dano_em_mim
-        print(f"💥 Seu ataque causou {dano_no_lider} de dano! Você recebeu {dano_em_mim} de dano!")
-        
-        if meu_lutador.hp < 20:
-            print("💀 Seu pokémon desmaiou! O Líder venceu esta rodada.")
-            meu_lutador.xp += 3
-            return False
-        elif lutador_lider.hp < 20:
-            print(f"🏆 VOCÊ DERROTOU O LÍDER {lider.nome.upper()}!")
-            # A derrota definitiva do líder concede a cobiçada insígnia, passo vital para zerar o jogo
-            self.insignias += 1
+
+        venceu = self.desafiar_treinador(lider, chance_aceitar=1.0)
+        if venceu:
             lider.derrotado = True
-            meu_lutador.xp += 10
-            print(f"🏅 Você recebeu uma INSÍGNIA! Total: {self.insignias}/8")
-        else:
-            print("⚔️ Batalha empatada. Ambos os pokémons continuam de pé!")
-            return False
-        
-    def enfrentar_rocket(self, rocket, mapa):
-        print(f"\n🛑 ALERTA! A EQUIPE ROCKET INTERCEPTOU VOCÊ EM {self.local_atual}!")
-        
-        meus_vivos = [p for p in self.pokemons_ativos if p.hp >= 20]
-        rocket_vivos = [p for p in rocket.equipe if p.hp >= 20]
-        
-        if not meus_vivos:
-            print("❌ Seus pokémons estão desmaiados. A Equipe Rocket roubou um item seu e fugiu!")
-            if self.inventario:
-                self.inventario.pop() # Punição: perde um item aleatório
-            return False
-            
-        meu_lutador = meus_vivos[0]
-        lutador_rocket = rocket_vivos[0]
-        
-        print(f"👉 Você enviou {meu_lutador.tipo} | Rocket enviou {lutador_rocket.tipo}!")
-        
-        dano_no_rocket = max(0, meu_lutador.ap - lutador_rocket.dp)
-        dano_em_mim = max(0, lutador_rocket.ap - meu_lutador.dp)
-        
-        lutador_rocket.hp -= dano_no_rocket
-        meu_lutador.hp -= dano_em_mim
-        print(f"💥 Você causou {dano_no_rocket} de dano e recebeu {dano_em_mim}!")
-        
-        if meu_lutador.hp < 20:
-            print("💀 Você perdeu! A Equipe Rocket foge rindo.")
-            meu_lutador.xp += 3
-            return False
-        elif lutador_rocket.hp < 20:
-            print("🏆 VOCÊ DERROTOU A EQUIPE ROCKET!")
-            meu_lutador.xp += 10
-            
-            cidades = list(mapa.adjacencias.keys())
-            vizinhos = [v for v, t in mapa.adjacencias[self.local_atual]]
-            # Filtra cidades que não são a atual e nem vizinhas diretas
-            cidades_distantes = [c for c in cidades if c != self.local_atual and c not in vizinhos]
-            
-            rocket.local_atual = random.choice(cidades_distantes) if cidades_distantes else random.choice(cidades)
-                
-            print(f"💨 Eles usaram uma bomba de fumaça e fugiram para {rocket.local_atual}!")
-            
-            # Gera uma equipe nova para o próximo encontro
-            rocket.equipe = [Pokemon(), Pokemon()]
-            for p in rocket.equipe:
-                p.ap += 15
-                p.dp += 15
-            return True
-        else:
-            print("⚔️ A batalha continua acirrada. Ninguém caiu ainda!")
-            return False
+            self.insignias += 1
+            print(f"🏅 Você recebeu a insígnia de {lider.nome}! Total: {self.insignias}/8")
+        return venceu
         
 class EquipeRocket:
     def __init__(self, local_inicial):
