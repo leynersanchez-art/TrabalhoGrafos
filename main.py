@@ -30,6 +30,10 @@ def espalhar_entidades_no_mapa(mapa):
         lider = LiderGinasio(nomes_lideres[i], cidade_escolhida)
         conteudo_cidades[cidade_escolhida]['lider'] = lider
         lideres.append(lider)
+
+    # A região só exige 8 insígnias se houver mais de 8 líderes cadastrados;
+    # caso contrário, a meta é vencer todos os líderes existentes
+    meta_insignias = 8 if num_lideres_possiveis > 8 else num_lideres_possiveis
         
     # Espalha treinadores NPC pelo mapa, usando a quantidade lida do cabeçalho do arquivo txt
     nomes_npc = ["Joey", "Cheryl", "Mikey", "Vance", "Bianca", "Calvin", "Wade", "Aaron", "Piper", "Todd"]
@@ -42,15 +46,15 @@ def espalhar_entidades_no_mapa(mapa):
         conteudo_cidades[cidade_npc].setdefault('treinadores', []).append(npc)
 
     # O retorno é obrigatório para evitar o erro 'NoneType'
-    return conteudo_cidades, treinadores_npc, lideres
+    return conteudo_cidades, treinadores_npc, lideres, meta_insignias
 
 def main():
     mapa = GrafoRegiao()
     mapa.carregar_mapa_arquivo("mapa.txt")
-    mundo, treinadores_npc, lideres = espalhar_entidades_no_mapa(mapa)
+    mundo, treinadores_npc, lideres, meta_insignias = espalhar_entidades_no_mapa(mapa)
 
-    
     jogador = Treinador(nome="Ash", local_atual="Pallet")
+    jogador.meta_insignias = meta_insignias
     jogador.receber_kit_inicial()
     
     # Inicializa a Equipe Rocket em uma cidade aleatória do mapa

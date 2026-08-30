@@ -14,6 +14,17 @@ ATAQUES_POR_TIPO = {
     "Gelo": [("Vento Gelado", 8), ("Nevasca", 15), ("Soco Gelado", 0)],
 }
 
+# Nomes de espécie por tipo e fase de evolução (1, 2 e 3)
+ESPECIES_POR_TIPO = {
+    "Água": ["Aqualim", "Aquartor", "Aquamestre"],
+    "Fogo": ["Flamito", "Flamaroz", "Infernaut"],
+    "Planta": ["Folhin", "Folharbusto", "Florestal"],
+    "Elétrico": ["Voltin", "Voltrago", "Trovoar"],
+    "Fantasma": ["Sombrin", "Sombraz", "Espectral"],
+    "Venenoso": ["Toxin", "Toxidral", "Peçonhaz"],
+    "Gelo": ["Gelin", "Gelaço", "Glacius"],
+}
+
 # Tabela de vantagens entre tipos.
 # FORTE_CONTRA: dobro de dano contra os tipos listados.
 # FRACO_CONTRA: metade do dano contra os tipos listados.
@@ -60,6 +71,7 @@ class Pokemon:
         self.pontos_batalha_dp = 0
         self.fase_evolucao = 1
         self.ataques = [{"nome": nome, "bonus": bonus} for nome, bonus in ATAQUES_POR_TIPO[self.tipo]]
+        self.especie = ESPECIES_POR_TIPO[self.tipo][0]
         self.ap = 0
         self.dp = 0
         # Distância restante até o pokémon poder voltar a lutar após desmaiar
@@ -90,6 +102,7 @@ class Pokemon:
         self.xp = 0
         self.ap_base = round(self.ap_base * 1.3)
         self.dp_base = round(self.dp_base * 1.3)
+        self.especie = ESPECIES_POR_TIPO[self.tipo][self.fase_evolucao - 1]
         self._atualizar_atributos()
 
     def desmaiar(self):
@@ -107,13 +120,13 @@ class Pokemon:
         return self.hp >= 20 and self.cooldown_inconsciente <= 0 and not self.precisa_pmc
 
     def definir_tipo(self, tipo):
-        # Troca o tipo do pokémon e recalcula seus ataques de acordo com o novo tipo
+        # Troca o tipo do pokémon e recalcula seus ataques e espécie de acordo com o novo tipo
         self.tipo = tipo
         self.ataques = [{"nome": nome, "bonus": bonus} for nome, bonus in ATAQUES_POR_TIPO[tipo]]
+        self.especie = ESPECIES_POR_TIPO[tipo][self.fase_evolucao - 1]
 
     def __str__(self):
-        return f"Pkmn {self.tipo} (HP:{self.hp} XP:{self.xp} AP:{self.ap} DP:{self.dp})"
-
+        return f"{self.especie} [{self.tipo}] (HP:{self.hp} XP:{self.xp} AP:{self.ap} DP:{self.dp})"
 
 class Item:
     def __init__(self):
@@ -175,17 +188,26 @@ class Treinador:
         self.pokemons_incubadora = []
         self.pokemons_carvalho = []
         self.insignias = 0
+        self.meta_insignias = 8
         self.inventario = []
         # Guarda a distância que ainda não completou 100 (XP) ou 10 (HP) unidades, para não perder o resto entre viagens
         self.distancia_pendente_xp = 0
         self.distancia_pendente_hp = 0
 
     def receber_kit_inicial(self):
-        p_agua, p_fogo, p_planta = Pokemon(), Pokemon(), Pokemon()
-        p_agua.definir_tipo("Água")
-        p_fogo.definir_tipo("Fogo")
-        p_planta.definir_tipo("Planta")
-        self.pokemons_ativos.extend([p_agua, p_fogo, p_planta])
+        resposta = input("O Professor Carvalho oferece 3 pokémons iniciais (Água, Fogo e Planta). Deseja aceitá-los? (s/n): ").strip().lower()
+
+        if resposta == 's':
+            p_agua, p_fogo, p_planta = Pokemon(), Pokemon(), Pokemon()
+            p_agua.definir_tipo("Água")
+            p_fogo.definir_tipo("Fogo")
+            p_planta.definir_tipo("Planta")
+            self.pokemons_ativos.extend([p_agua, p_fogo, p_planta])
+            print("🎁 Você recebeu os 3 pokémons iniciais!")
+        else:
+            pokemon_unico = Pokemon()
+            self.pokemons_ativos.append(pokemon_unico)
+            print(f"🎁 Você recebeu apenas um pokémon aleatório do laboratório: {pokemon_unico.tipo}!")
 
         self.inventario.append("Encubadora")
         for _ in range(7):
@@ -336,6 +358,13 @@ class Treinador:
 
         while p_aliado.hp >= 20 and p_selvagem.hp >= 20 and turnos < MAX_TURNOS:
             turnos += 1
+
+            if not turno_do_selvagem:
+                desistir = input("Deseja continuar a captura ou desistir e deixar o selvagem fugir? (continuar/desistir): ").strip().lower()
+                if desistir == 'desistir':
+                    print(f"💨 Você desistiu. O {p_selvagem.tipo} foge escondido, ferido pela luta.")
+                    return False
+
             if turno_do_selvagem:
                 self._executar_ataque(p_selvagem, 0, p_aliado, 0, controlado_pelo_jogador=False)
             else:
@@ -544,7 +573,7 @@ class Treinador:
         if venceu:
             lider.derrotado = True
             self.insignias += 1
-            print(f"🏅 Você recebeu a insígnia de {lider.nome}! Total: {self.insignias}/8")
+            print(f"🏅 Você recebeu a insígnia de {lider.nome}! Total: {self.insignias}/{self.meta_insignias}")
         return venceu
 
 
