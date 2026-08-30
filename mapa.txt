@@ -4,3 +4,4 @@ Viridian Pewter 25
 Pewter Cerulean 40
 Pallet Lab_Carvalho 2
 Viridian Centro_Medico 5
+Cerulean Liga_Pokemon 30

@@ -190,6 +190,7 @@ class Treinador:
         self.insignias = 0
         self.meta_insignias = 8
         self.inventario = []
+        self.inscrito_na_liga = False
         # Guarda a distância que ainda não completou 100 (XP) ou 10 (HP) unidades, para não perder o resto entre viagens
         self.distancia_pendente_xp = 0
         self.distancia_pendente_hp = 0
@@ -638,6 +639,20 @@ class Treinador:
 
         self.distancia_percorrida += tempo_maximo
         print(f"⏱️ Tratamento concluído após {tempo_maximo} unidades de tempo no PMC.")
+
+    def tentar_inscricao_liga(self, prazo_maximo):
+        if self.distancia_percorrida > prazo_maximo:
+            print("\n❌ O prazo de inscrição na Liga Pokémon já se esgotou. Você está inapto para a competição.")
+            return False
+
+        if self.insignias < self.meta_insignias:
+            print(f"\n❌ Você ainda não tem insígnias suficientes! ({self.insignias}/{self.meta_insignias})")
+            return False
+
+        self.inscrito_na_liga = True
+        print(f"\n🏆 PARABÉNS! Com {self.insignias} insígnias e dentro do prazo, você se inscreveu na Liga Pokémon!")
+        print("🎉 VOCÊ VENCEU O JOGO!")
+        return True
 
 
 class EquipeRocket:

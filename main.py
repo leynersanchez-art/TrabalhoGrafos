@@ -53,15 +53,25 @@ def main():
     mapa.carregar_mapa_arquivo("mapa.txt")
     mundo, treinadores_npc, lideres, meta_insignias = espalhar_entidades_no_mapa(mapa)
 
+    prazo_min, prazo_max = mapa.calcular_prazo_inscricao()
+    prazo_maximo_jogo = random.randint(prazo_min, prazo_max)
+
     jogador = Treinador(nome="Ash", local_atual="Pallet")
     jogador.meta_insignias = meta_insignias
     jogador.receber_kit_inicial()
-    
+
+    print(f"\n📜 Você tem até {prazo_maximo_jogo} unidades de distância percorrida para se inscrever na Liga Pokémon!")
+        
     # Inicializa a Equipe Rocket em uma cidade aleatória do mapa
     cidades_mapa = list(mapa.adjacencias.keys())
     rocket = EquipeRocket(random.choice(cidades_mapa))
     
     while True:
+        if jogador.distancia_percorrida > prazo_maximo_jogo and not jogador.inscrito_na_liga:
+            print(f"\n⏰ O prazo de {prazo_maximo_jogo} unidades de distância se esgotou! Você não se inscreveu a tempo.")
+            print("💀 FIM DE JOGO: você está inapto para a Liga Pokémon, mesmo que tenha conquistado insígnias.")
+            break
+
         # Movimentação de patrulha dos líderes de ginásio (não derrotados) entre as cidades
         for lider in lideres:
             if lider.derrotado:
@@ -133,9 +143,10 @@ def main():
 
             # Monta a lista do que existe na cidade agora, sem deixar nada "escondido" atrás de outra entidade
             opcoes_locais = []
+            if "Liga_Pokemon" in jogador.local_atual:
+                opcoes_locais.append(('liga', "Inscrever-se na Liga Pokémon"))
             if "Centro_Medico" in jogador.local_atual:
                 opcoes_locais.append(('pmc', "Tratar pokémons machucados no PMC"))
-            if lider and not lider.derrotado:
                 opcoes_locais.append(('lider', f"Desafiar o Líder de Ginásio {lider.nome}"))
             if npc_disponivel:
                 opcoes_locais.append(('npc', f"Desafiar o treinador {npc_disponivel.nome}"))
@@ -155,7 +166,11 @@ def main():
                 if escolha.isdigit() and 1 <= int(escolha) <= len(opcoes_locais):
                     tipo_escolhido, _ = opcoes_locais[int(escolha) - 1]
 
-                    if tipo_escolhido == 'pmc':
+                    if tipo_escolhido == 'liga':
+                        venceu_jogo = jogador.tentar_inscricao_liga(prazo_maximo_jogo)
+                        if venceu_jogo:
+                            return
+                    elif tipo_escolhido == 'pmc':
                         jogador.tratar_pokemons_pmc()
                     elif tipo_escolhido == 'lider':
                         jogador.desafiar_lider(lider)
@@ -174,5 +189,7 @@ def main():
                 else:
                     print("❌ Escolha inválida.")
 
+
 if __name__ == "__main__":
     main()
+
