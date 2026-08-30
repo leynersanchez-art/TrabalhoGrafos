@@ -24,9 +24,12 @@ def espalhar_entidades_no_mapa(mapa):
     num_lideres_possiveis = min(8, len(cidades_elegiveis))
     cidades_ginasio = random.sample(cidades_elegiveis, num_lideres_possiveis)
     
+    lideres = []
     for i in range(num_lideres_possiveis):
         cidade_escolhida = cidades_ginasio[i]
-        conteudo_cidades[cidade_escolhida]['lider'] = LiderGinasio(nomes_lideres[i])
+        lider = LiderGinasio(nomes_lideres[i], cidade_escolhida)
+        conteudo_cidades[cidade_escolhida]['lider'] = lider
+        lideres.append(lider)
         
     # Espalha treinadores NPC pelo mapa, usando a quantidade lida do cabeçalho do arquivo txt
     nomes_npc = ["Joey", "Cheryl", "Mikey", "Vance", "Bianca", "Calvin", "Wade", "Aaron", "Piper", "Todd"]
@@ -39,12 +42,12 @@ def espalhar_entidades_no_mapa(mapa):
         conteudo_cidades[cidade_npc].setdefault('treinadores', []).append(npc)
 
     # O retorno é obrigatório para evitar o erro 'NoneType'
-    return conteudo_cidades, treinadores_npc
+    return conteudo_cidades, treinadores_npc, lideres
 
 def main():
     mapa = GrafoRegiao()
     mapa.carregar_mapa_arquivo("mapa.txt")
-    mundo, treinadores_npc = espalhar_entidades_no_mapa(mapa)
+    mundo, treinadores_npc, lideres = espalhar_entidades_no_mapa(mapa)
 
     
     jogador = Treinador(nome="Ash", local_atual="Pallet")
@@ -55,6 +58,16 @@ def main():
     rocket = EquipeRocket(random.choice(cidades_mapa))
     
     while True:
+        # Movimentação de patrulha dos líderes de ginásio (não derrotados) entre as cidades
+        for lider in lideres:
+            if lider.derrotado:
+                continue
+            cidade_antiga = lider.local_atual
+            lider.mover_um_passo(mapa)
+            if lider.local_atual != cidade_antiga:
+                mundo[cidade_antiga]['lider'] = None
+                mundo[lider.local_atual]['lider'] = lider
+
         # A Equipe Rocket só se move e pode ser encontrada enquanto estiver visível
         if rocket.visivel:
             vizinhos_rocket = [cidade for cidade, tempo in mapa.adjacencias[rocket.local_atual]]

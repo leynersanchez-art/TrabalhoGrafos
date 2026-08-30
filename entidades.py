@@ -124,11 +124,36 @@ class Item:
 
 
 class LiderGinasio:
-    def __init__(self, nome):
+    def __init__(self, nome, cidade_natal):
         self.nome = nome
         self.derrotado = False
-        self.xp = random.randint(10, 30)
+        self.xp = random.randint(0, 5)
         self.equipe = [Pokemon(), Pokemon(), Pokemon()]
+        self.cidade_natal = cidade_natal
+        self.local_atual = cidade_natal
+        self.passos_fora = 0
+        self.passos_parado_no_ginasio = 0
+        # Quantos passos o líder patrulha antes de voltar, e quanto tempo permanece parado ao retornar
+        self.limite_patrulha = random.randint(2, 4)
+        self.limite_permanencia = random.randint(3, 6)
+
+    def mover_um_passo(self, mapa):
+        if self.local_atual == self.cidade_natal and self.passos_parado_no_ginasio < self.limite_permanencia:
+            # Ainda está no período de permanência fixa no ginásio
+            self.passos_parado_no_ginasio += 1
+            return
+
+        if self.passos_fora >= self.limite_patrulha:
+            # Hora de voltar para o ginásio de origem
+            self.local_atual = self.cidade_natal
+            self.passos_fora = 0
+            self.passos_parado_no_ginasio = 0
+            return
+
+        vizinhos = [cidade for cidade, tempo in mapa.adjacencias[self.local_atual]]
+        if vizinhos:
+            self.local_atual = random.choice(vizinhos)
+            self.passos_fora += 1
 
 
 class TreinadorNPC:
