@@ -2,8 +2,6 @@ import random
 
 TIPOS_POKEMON = ["Água", "Fogo", "Planta", "Elétrico", "Fantasma", "Venenoso", "Gelo"]
 
-# Cada tipo possui um conjunto fixo de ataques. O "bonus" é somado ao AP do pokémon
-# no momento do golpe, representando a força específica daquele ataque.
 ATAQUES_POR_TIPO = {
     "Água": [("Jato d'Água", 5), ("Hidro Bomba", 15), ("Bolha", 0)],
     "Fogo": [("Lança-Chamas", 10), ("Investida de Fogo", 15), ("Brasa", 0)],
@@ -14,7 +12,6 @@ ATAQUES_POR_TIPO = {
     "Gelo": [("Vento Gelado", 8), ("Nevasca", 15), ("Soco Gelado", 0)],
 }
 
-# Nomes de espécie por tipo e fase de evolução (1, 2 e 3)
 ESPECIES_POR_TIPO = {
     "Água": ["Aqualim", "Aquartor", "Aquamestre"],
     "Fogo": ["Flamito", "Flamaroz", "Infernaut"],
@@ -25,10 +22,6 @@ ESPECIES_POR_TIPO = {
     "Gelo": ["Gelin", "Gelaço", "Glacius"],
 }
 
-# Tabela de vantagens entre tipos.
-# FORTE_CONTRA: dobro de dano contra os tipos listados.
-# FRACO_CONTRA: metade do dano contra os tipos listados.
-# Combinações fora das duas listas são neutras (multiplicador 1x).
 FORTE_CONTRA = {
     "Água": ["Fogo"],
     "Fogo": ["Planta", "Gelo"],
@@ -49,7 +42,6 @@ FRACO_CONTRA = {
     "Gelo": ["Água", "Fogo"],
 }
 
-
 def obter_multiplicador_tipo(tipo_atacante, tipo_defensor):
     if tipo_defensor in FORTE_CONTRA.get(tipo_atacante, []):
         return 2.0
@@ -63,10 +55,8 @@ class Pokemon:
         self.tipo = random.choice(TIPOS_POKEMON)
         self.hp = 100
         self.xp = 0
-        # Valores de referência da fase atual; o AP/DP exibido é sempre recalculado a partir deles
         self.ap_base = random.randint(10, 50)
         self.dp_base = random.randint(10, 50)
-        # Pontos permanentes ganhos ao derrotar oponentes com XP maior ou igual ao seu
         self.pontos_batalha_ap = 0
         self.pontos_batalha_dp = 0
         self.fase_evolucao = 1
@@ -74,36 +64,32 @@ class Pokemon:
         self.especie = ESPECIES_POR_TIPO[self.tipo][0]
         self.ap = 0
         self.dp = 0
-        # Distância restante até o pokémon poder voltar a lutar após desmaiar
         self.cooldown_inconsciente = 0
-        # Fica True quando o HP cai abaixo de 5; só volta a False com tratamento no PMC
         self.precisa_pmc = False
         self._atualizar_atributos()
 
     def _atualizar_atributos(self):
-        # AP/DP totais = valor inicial da fase atual + 10% do XP acumulado + pontos ganhos em batalha
         bonus_xp = round(self.xp * 0.10)
-        self.ap = self.ap_base + bonus_xp + self.pontos_batalha_ap
-        self.dp = self.dp_base + bonus_xp + self.pontos_batalha_dp
+        self.ap = round(self.ap_base + bonus_xp + self.pontos_batalha_ap)
+        self.dp = round(self.dp_base + bonus_xp + self.pontos_batalha_dp)
 
     def ganhar_xp(self, quantidade):
         self.xp += quantidade
         self._atualizar_atributos()
 
     def registrar_resultado_batalha(self, xp_oponente_no_momento):
-        # Compara o XP do oponente derrotado com o XP deste pokémon ANTES do ganho de XP da própria vitória
         if xp_oponente_no_momento >= self.xp:
             self.pontos_batalha_ap += 1
             self.pontos_batalha_dp += 1
         self._atualizar_atributos()
 
     def evoluir(self):
-        self.fase_evolucao += 1
-        self.xp = 0
-        self.ap_base = round(self.ap_base * 1.3)
-        self.dp_base = round(self.dp_base * 1.3)
-        self.especie = ESPECIES_POR_TIPO[self.tipo][self.fase_evolucao - 1]
-        self._atualizar_atributos()
+        if self.fase_evolucao < 3:
+            self.fase_evolucao += 1
+            self.ap_base = round(self.ap_base * 1.3)
+            self.dp_base = round(self.dp_base * 1.3)
+            self.especie = ESPECIES_POR_TIPO[self.tipo][self.fase_evolucao - 1]
+            self._atualizar_atributos()
 
     def desmaiar(self):
         self.cooldown_inconsciente = random.randint(10, 50)
@@ -113,20 +99,21 @@ class Pokemon:
     def avancar_tempo(self, distancia):
         if self.cooldown_inconsciente > 0:
             self.cooldown_inconsciente = max(0, self.cooldown_inconsciente - distancia)
-            if self.cooldown_inconsciente == 0 and not self.precisa_pmc:
-                self.hp = max(self.hp, 20)
+        
+        if self.cooldown_inconsciente == 0 and not self.precisa_pmc and self.hp < 20 and self.hp >= 5:
+            self.hp = 20
 
     def esta_disponivel(self):
         return self.hp >= 20 and self.cooldown_inconsciente <= 0 and not self.precisa_pmc
 
     def definir_tipo(self, tipo):
-        # Troca o tipo do pokémon e recalcula seus ataques e espécie de acordo com o novo tipo
         self.tipo = tipo
         self.ataques = [{"nome": nome, "bonus": bonus} for nome, bonus in ATAQUES_POR_TIPO[tipo]]
         self.especie = ESPECIES_POR_TIPO[tipo][self.fase_evolucao - 1]
 
     def __str__(self):
         return f"{self.especie} [{self.tipo}] (HP:{self.hp} XP:{self.xp} AP:{self.ap} DP:{self.dp})"
+
 
 class Item:
     def __init__(self):
@@ -146,24 +133,26 @@ class LiderGinasio:
         self.local_atual = cidade_natal
         self.passos_fora = 0
         self.passos_parado_no_ginasio = 0
-        # Quantos passos o líder patrulha antes de voltar, e quanto tempo permanece parado ao retornar
         self.limite_patrulha = random.randint(2, 4)
         self.limite_permanencia = random.randint(3, 6)
 
     def mover_um_passo(self, mapa):
         if self.local_atual == self.cidade_natal and self.passos_parado_no_ginasio < self.limite_permanencia:
-            # Ainda está no período de permanência fixa no ginásio
             self.passos_parado_no_ginasio += 1
             return
 
         if self.passos_fora >= self.limite_patrulha:
-            # Hora de voltar para o ginásio de origem
             self.local_atual = self.cidade_natal
             self.passos_fora = 0
             self.passos_parado_no_ginasio = 0
             return
 
-        vizinhos = [cidade for cidade, tempo in mapa.adjacencias[self.local_atual]]
+        # Filtra apenas vizinhos que não sejam Lab_Carvalho nem Centro_Medico
+        vizinhos = [
+            cidade for cidade, tempo in mapa.adjacencias[self.local_atual]
+            if "Lab_Carvalho" not in cidade and "Centro_Medico" not in cidade
+        ]
+        
         if vizinhos:
             self.local_atual = random.choice(vizinhos)
             self.passos_fora += 1
@@ -191,7 +180,6 @@ class Treinador:
         self.meta_insignias = 8
         self.inventario = []
         self.inscrito_na_liga = False
-        # Guarda a distância que ainda não completou 100 (XP) ou 10 (HP) unidades, para não perder o resto entre viagens
         self.distancia_pendente_xp = 0
         self.distancia_pendente_hp = 0
 
@@ -229,51 +217,50 @@ class Treinador:
         print(f"🎒 Inventário: {self.inventario}")
         print("===================================\n")
 
+    def processar_passagem_de_tempo(self, tempo_gasto):
+        self.distancia_percorrida += tempo_gasto
+        self.distancia_pendente_hp += tempo_gasto
+        self.distancia_pendente_xp += tempo_gasto
+
+        recuperacao_hp = self.distancia_pendente_hp // 10
+        self.distancia_pendente_hp %= 10
+
+        ganho_xp = self.distancia_pendente_xp // 100
+        self.distancia_pendente_xp %= 100
+
+        for p in self.pokemons_ativos:
+            p.avancar_tempo(tempo_gasto)
+
+            if p.hp >= 20 and not p.precisa_pmc:
+                p.hp = min(100, p.hp + recuperacao_hp)
+
+            p.ganhar_xp(ganho_xp)
+
+            if p.xp >= 1000 and p.fase_evolucao < 3:
+                ap_antigo, dp_antigo = p.ap, p.dp
+                p.evoluir()
+                print(f"🌟 INCRÍVEL! Seu Pokémon {p.tipo} evoluiu para a FASE {p.fase_evolucao}! (AP: {ap_antigo}→{p.ap}, DP: {dp_antigo}→{p.dp})")
+
+        ovos_prontos = []
+        for ovo in self.pokemons_incubadora:
+            ovo["distancia_restante"] -= tempo_gasto
+            if ovo["distancia_restante"] <= 0:
+                ovos_prontos.append(ovo)
+
+        for ovo in ovos_prontos:
+            self.pokemons_incubadora.remove(ovo)
+            novo_pokemon = Pokemon()
+            self.pokemons_ativos.append(novo_pokemon)
+            print(f"🎉 CHOCOU! Um {novo_pokemon.tipo} nasceu e entrou pra equipe!")
+
     def mover(self, mapa, destino):
         vizinhos = {cidade: tempo for cidade, tempo in mapa.adjacencias[self.local_atual]}
 
         if destino in vizinhos:
             tempo_gasto = vizinhos[destino]
             self.local_atual = destino
-            self.distancia_percorrida += tempo_gasto
             print(f"\n🚶 Você viajou para {destino} e percorreu {tempo_gasto} de distância.")
-
-            self.distancia_pendente_hp += tempo_gasto
-            self.distancia_pendente_xp += tempo_gasto
-
-            recuperacao_hp = self.distancia_pendente_hp // 10
-            self.distancia_pendente_hp %= 10
-
-            ganho_xp = self.distancia_pendente_xp // 100
-            self.distancia_pendente_xp %= 100
-
-            for p in self.pokemons_ativos:
-                p.avancar_tempo(tempo_gasto)
-
-                if p.hp >= 20: 
-                    p.hp = min(100, p.hp + recuperacao_hp) 
-                
-                p.ganhar_xp(ganho_xp)
-                
-                if p.xp >= 1000 and p.fase_evolucao < 3:
-                    ap_antigo, dp_antigo = p.ap, p.dp
-                    p.evoluir()
-                    print(f"🌟 INCRÍVEL! Seu Pokémon {p.tipo} evoluiu para a FASE {p.fase_evolucao}! (AP: {ap_antigo}→{p.ap}, DP: {dp_antigo}→{p.dp})")
-
-            ovos_prontos = []
-            for ovo in self.pokemons_incubadora:
-                ovo["distancia_restante"] -= tempo_gasto
-                if ovo["distancia_restante"] <= 0:
-                    ovos_prontos.append(ovo)
-
-            for ovo in ovos_prontos:
-                self.pokemons_incubadora.remove(ovo)
-                if len(self.pokemons_ativos) < 6:
-                    novo_pokemon = Pokemon()
-                    self.pokemons_ativos.append(novo_pokemon)
-                    print(f"🎉 CHOCOU! Um {novo_pokemon.tipo} nasceu e entrou pra equipe!")
-                else:
-                    print("🎉 O ovo chocou, mas você já carrega 6 Pokémons. O recém-nascido foi enviado pro Professor Carvalho.")
+            self.processar_passagem_de_tempo(tempo_gasto)
         else:
             print(f"\n❌ {destino} é longe demais. Você só pode viajar para cidades vizinhas.")
 
@@ -285,7 +272,7 @@ class Treinador:
         elif item.tipo == "Erva Medicinal":
             print("🌿 Preparando poção com a Erva Medicinal...")
             for p in self.pokemons_ativos:
-                if p.hp >= 20:
+                if p.hp >= 20 and not p.precisa_pmc:
                     p.hp = min(100, p.hp + 10)
             print("✨ Todos os pokémons conscientes recuperaram 10 de HP!")
 
@@ -299,7 +286,7 @@ class Treinador:
                 else:
                     print("🥚 Você decidiu deixar o Ovo para trás.")
             else:
-                print("🥚 Achou um Ovo, mas sua equipe tá lotada ou falta a encubadora.")
+                print("🥚 Achou um Ovo, mas você não pode carregar mais de 7 itens entre pokémons e ovos.")
 
     def _escolher_ataque(self, pokemon, controlado_pelo_jogador):
         if not controlado_pelo_jogador:
@@ -349,6 +336,7 @@ class Treinador:
         p_aliado = next((p for p in self.pokemons_ativos if p.esta_disponivel()), None)
         if not p_aliado:
             print("❌ Sua equipe inteira caiu. Você foge da batalha!")
+            self.processar_passagem_de_tempo(1)
             return False
 
         print(f"👉 Vai, {p_aliado.tipo}!")
@@ -364,6 +352,7 @@ class Treinador:
                 desistir = input("Deseja continuar a captura ou desistir e deixar o selvagem fugir? (continuar/desistir): ").strip().lower()
                 if desistir == 'desistir':
                     print(f"💨 Você desistiu. O {p_selvagem.tipo} foge escondido, ferido pela luta.")
+                    self.processar_passagem_de_tempo(1)
                     return False
 
             if turno_do_selvagem:
@@ -371,6 +360,8 @@ class Treinador:
             else:
                 self._executar_ataque(p_aliado, 0, p_selvagem, 0, controlado_pelo_jogador=True)
             turno_do_selvagem = not turno_do_selvagem
+
+        self.processar_passagem_de_tempo(1)
 
         if p_aliado.hp < 20:
             print(f"💀 Seu {p_aliado.tipo} foi nocauteado!")
@@ -435,12 +426,6 @@ class Treinador:
         return random.random() < 0.85
 
     def _duelo_3v3(self, oponente):
-        """
-        Executa o duelo 3v3 propriamente dito, sem etapa de desafio/aceite.
-        Usado tanto por batalhas negociadas (desafiar_treinador) quanto por
-        encontros forçados (emboscada da Equipe Rocket).
-        Retorna True se self venceu.
-        """
         meus_conscientes = [p for p in self.pokemons_ativos if p.esta_disponivel()]
         seus_conscientes = [p for p in oponente.equipe if p.esta_disponivel()]
 
@@ -517,7 +502,7 @@ class Treinador:
 
             turno_do_desafiante = not turno_do_desafiante
 
-        self.distancia_percorrida += 1
+        self.processar_passagem_de_tempo(1)
 
         if not time_desafiante and not time_oponente:
             print("\n⚖️ Ambos os lados ficaram sem pokémons ao mesmo tempo. Sem vencedor.")
@@ -539,12 +524,6 @@ class Treinador:
         return vitoria
 
     def desafiar_treinador(self, oponente):
-        """
-        Negocia um desafio 3v3 contra outro treinador (NPC, líder de ginásio, etc):
-        exige 3 pokémons conscientes, pergunta se você quer desafiar e se o
-        oponente aceita, e só então inicia o duelo.
-        Retorna True se self venceu; False em qualquer outro caso (recusa, perda, empate).
-        """
         meus_conscientes = [p for p in self.pokemons_ativos if p.esta_disponivel()]
         if len(meus_conscientes) < 3:
             print("❌ Você precisa de ao menos 3 pokémons conscientes para desafiar um treinador!")
@@ -576,7 +555,6 @@ class Treinador:
             self.insignias += 1
             print(f"🏅 Você recebeu a insígnia de {lider.nome}! Total: {self.insignias}/{self.meta_insignias}")
         return venceu
-
 
     def enfrentar_rocket(self, rocket, mapa):
         print(f"\n🛑 ALERTA! A EQUIPE ROCKET INTERCEPTOU VOCÊ EM {self.local_atual}!")
@@ -620,11 +598,10 @@ class Treinador:
         rocket.local_atual = random.choice(cidades_distantes) if cidades_distantes else random.choice(cidades)
         print(f"🏆 Você derrotou a Equipe Rocket! Eles fugiram para {rocket.local_atual}.")
 
-
     def tratar_pokemons_pmc(self):
         pokemons_para_tratar = [p for p in self.pokemons_ativos if p.precisa_pmc]
         if not pokemons_para_tratar:
-            print("✅ Nenhum dos seus pokémons precisa de tratamento no momento.")
+            print("✅ Nenhum dos seus pokémons precisa de tratamento no PMC no momento.")
             return
 
         print(f"\n🏥 {len(pokemons_para_tratar)} pokémon(s) internados para tratamento (sem fila de espera, em paralelo).")
@@ -637,7 +614,7 @@ class Treinador:
             p.cooldown_inconsciente = 0
             print(f"  💊 {p.tipo} tratado em {tempo_tratamento} unidades de tempo. HP restaurado para 100.")
 
-        self.distancia_percorrida += tempo_maximo
+        self.processar_passagem_de_tempo(tempo_maximo)
         print(f"⏱️ Tratamento concluído após {tempo_maximo} unidades de tempo no PMC.")
 
     def tentar_inscricao_liga(self, prazo_maximo):

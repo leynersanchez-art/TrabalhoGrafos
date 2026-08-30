@@ -4,25 +4,25 @@ from entidades import Pokemon, Item, Treinador, LiderGinasio, EquipeRocket, Trei
 
 def espalhar_entidades_no_mapa(mapa):
     cidades = list(mapa.adjacencias.keys())
-    # Cria o "inventário de chão" de c2ada cidade garantindo que o mapa possa suportar itens e NPCs simultâneos
     conteudo_cidades = {cidade: {'pokemons': [], 'itens': [], 'lider': None, 'treinadores': []} for cidade in cidades}
     
-    # A localização inicial das entidades é determinada pelo acaso usando as quantidades lidas do cabeçalho do arquivo texto
+    # Cidades elegíveis para encontros (sem Laboratório do Carvalho e Centros Médicos)
+    cidades_com_encontros = [c for c in cidades if "Lab_Carvalho" not in c and "Centro_Medico" not in c]
+    if not cidades_com_encontros:
+        cidades_com_encontros = cidades
+
+    # Espalhar Pokémons Selvagens apenas em cidades válidas
     for _ in range(mapa.num_pokemons):
-        conteudo_cidades[random.choice(cidades)]['pokemons'].append(Pokemon())
+        conteudo_cidades[random.choice(cidades_com_encontros)]['pokemons'].append(Pokemon())
         
+    # Itens podem aparecer em qualquer cidade do mapa
     for _ in range(mapa.num_itens):
         conteudo_cidades[random.choice(cidades)]['itens'].append(Item())
         
-    # Sorteia vértices distintos para os Líderes, limitando ao total de cidades disponíveis no mapa para evitar crash
+    # Espalhar Líderes de Ginásio apenas nas cidades elegíveis
     nomes_lideres = ["Brock", "Misty", "Surge", "Erika", "Koga", "Sabrina", "Blaine", "Giovanni"]
-    
-    # Cidades especiais (laboratório, centro médico) não fazem sentido temático como sede de ginásio
-    cidades_elegiveis = [c for c in cidades if "Lab_Carvalho" not in c and "Centro_Medico" not in c]
-
-    # Descobre se o mapa tem 8 cidades elegíveis ou menos, e pega o menor número
-    num_lideres_possiveis = min(8, len(cidades_elegiveis))
-    cidades_ginasio = random.sample(cidades_elegiveis, num_lideres_possiveis)
+    num_lideres_possiveis = min(len(nomes_lideres), len(cidades_com_encontros))
+    cidades_ginasio = random.sample(cidades_com_encontros, num_lideres_possiveis)
     
     lideres = []
     for i in range(num_lideres_possiveis):
@@ -31,21 +31,18 @@ def espalhar_entidades_no_mapa(mapa):
         conteudo_cidades[cidade_escolhida]['lider'] = lider
         lideres.append(lider)
 
-    # A região só exige 8 insígnias se houver mais de 8 líderes cadastrados;
-    # caso contrário, a meta é vencer todos os líderes existentes
-    meta_insignias = 8 if num_lideres_possiveis > 8 else num_lideres_possiveis
+    meta_insignias = 8 if num_lideres_possiveis >= 8 else num_lideres_possiveis
         
-    # Espalha treinadores NPC pelo mapa, usando a quantidade lida do cabeçalho do arquivo txt
+    # Espalhar Treinadores NPC apenas nas cidades elegíveis
     nomes_npc = ["Joey", "Cheryl", "Mikey", "Vance", "Bianca", "Calvin", "Wade", "Aaron", "Piper", "Todd"]
     treinadores_npc = []
     for i in range(mapa.num_treinadores):
         nome_npc = nomes_npc[i % len(nomes_npc)]
-        cidade_npc = random.choice(cidades)
+        cidade_npc = random.choice(cidades_com_encontros)
         npc = TreinadorNPC(nome_npc, cidade_npc)
         treinadores_npc.append(npc)
         conteudo_cidades[cidade_npc].setdefault('treinadores', []).append(npc)
 
-    # O retorno é obrigatório para evitar o erro 'NoneType'
     return conteudo_cidades, treinadores_npc, lideres, meta_insignias
 
 def main():
@@ -62,7 +59,6 @@ def main():
 
     print(f"\n📜 Você tem até {prazo_maximo_jogo} unidades de distância percorrida para se inscrever na Liga Pokémon!")
         
-    # Inicializa a Equipe Rocket em uma cidade aleatória do mapa
     cidades_mapa = list(mapa.adjacencias.keys())
     rocket = EquipeRocket(random.choice(cidades_mapa))
     
@@ -72,7 +68,6 @@ def main():
             print("💀 FIM DE JOGO: você está inapto para a Liga Pokémon, mesmo que tenha conquistado insígnias.")
             break
 
-        # Movimentação de patrulha dos líderes de ginásio (não derrotados) entre as cidades
         for lider in lideres:
             if lider.derrotado:
                 continue
@@ -82,7 +77,6 @@ def main():
                 mundo[cidade_antiga]['lider'] = None
                 mundo[lider.local_atual]['lider'] = lider
 
-        # A Equipe Rocket só se move e pode ser encontrada enquanto estiver visível
         if rocket.visivel:
             vizinhos_rocket = [cidade for cidade, tempo in mapa.adjacencias[rocket.local_atual]]
             if vizinhos_rocket:
@@ -95,7 +89,6 @@ def main():
 
         jogador.exibir_status()
 
-        # Checa se o jogador e a Equipe Rocket se esbarraram na mesma cidade (só é possível se ela estiver visível)
         if rocket.visivel and jogador.local_atual == rocket.local_atual:
             jogador.enfrentar_rocket(rocket, mapa)
         
@@ -141,12 +134,12 @@ def main():
             itens_no_local = mundo[jogador.local_atual]['itens']
             pokemons_no_local = mundo[jogador.local_atual]['pokemons']
 
-            # Monta a lista do que existe na cidade agora, sem deixar nada "escondido" atrás de outra entidade
             opcoes_locais = []
             if "Liga_Pokemon" in jogador.local_atual:
                 opcoes_locais.append(('liga', "Inscrever-se na Liga Pokémon"))
             if "Centro_Medico" in jogador.local_atual:
                 opcoes_locais.append(('pmc', "Tratar pokémons machucados no PMC"))
+            if lider:
                 opcoes_locais.append(('lider', f"Desafiar o Líder de Ginásio {lider.nome}"))
             if npc_disponivel:
                 opcoes_locais.append(('npc', f"Desafiar o treinador {npc_disponivel.nome}"))
@@ -179,7 +172,7 @@ def main():
                         if venceu:
                             npc_disponivel.derrotado_hoje = True
                     elif tipo_escolhido == 'itens':
-                        for item in itens_no_local:
+                        for item in list(itens_no_local):
                             jogador.pegar_item(item)
                         mundo[jogador.local_atual]['itens'] = []
                     elif tipo_escolhido == 'pokemon':
@@ -189,7 +182,5 @@ def main():
                 else:
                     print("❌ Escolha inválida.")
 
-
 if __name__ == "__main__":
     main()
-
